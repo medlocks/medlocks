@@ -58,7 +58,6 @@ export default function SignupScreen() {
     <ImageBackground
       source={require("../../assets/bgPrint.png")}
       style={styles.container}
-      resizeMode="cover"
     >
       <View style={styles.inner}>
         <Text style={styles.title}>Create Account</Text>
