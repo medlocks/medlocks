@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, TextInput, Button, StyleSheet, Alert } from "react-native";
+import React, { useState } from "react";
+import { View, Text, TextInput, Button, StyleSheet } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -8,21 +8,35 @@ import { useRouter } from "expo-router";
 
 const schema = yup.object().shape({
   email: yup.string().email("Invalid email").required("Email required"),
-  password: yup.string().min(6, "Min 6 chars").required("Password required"),
+  password: yup.string().min(6, "Min 6 characters").required("Password required"),
 });
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { control, handleSubmit } = useForm({
+  const { control, handleSubmit, formState: { errors } } = useForm({
     resolver: yupResolver(schema),
   });
+  const [firebaseError, setFirebaseError] = useState("");
 
   const onSubmit = async (data: any) => {
+    setFirebaseError("");
     try {
       await login(data.email, data.password);
-      router.replace("/");
+      router.replace("/(tabs)");
     } catch (error: any) {
-      Alert.alert("Login failed", error.message);
+      switch (error.code) {
+        case "auth/user-not-found":
+          setFirebaseError("No account found with this email");
+          break;
+        case "auth/wrong-password":
+          setFirebaseError("Incorrect password");
+          break;
+        case "auth/invalid-email":
+          setFirebaseError("Invalid email address");
+          break;
+        default:
+          setFirebaseError("Login failed. Please try again.");
+      }
     }
   };
 
@@ -43,6 +57,7 @@ export default function LoginScreen() {
           />
         )}
       />
+      {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
 
       <Controller
         control={control}
@@ -57,6 +72,9 @@ export default function LoginScreen() {
           />
         )}
       />
+      {errors.password && <Text style={styles.error}>{errors.password.message}</Text>}
+
+      {firebaseError ? <Text style={styles.error}>{firebaseError}</Text> : null}
 
       <Button title="Login" onPress={handleSubmit(onSubmit)} />
       <Text style={styles.link} onPress={() => router.push("/auth/signup")}>
@@ -69,12 +87,8 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 20, backgroundColor: "#fff" },
   title: { fontSize: 24, fontWeight: "700", marginBottom: 16, textAlign: "center" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
+  input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, marginBottom: 6 },
+  error: { color: "red", marginBottom: 6 },
   link: { color: "#ff9db2", textAlign: "center", marginTop: 16 },
 });
+
