@@ -56,7 +56,7 @@ export default function LoginScreen() {
 
   return (
     <ImageBackground
-      source={require("medlocks/medlocks/app/assets/bgPrint.png")}
+      source={require("../assets/bgPrint.png")}
       style={styles.container}
       resizeMode="cover"
     >
