@@ -1,9 +1,4 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-// app/index.tsx
 import React from "react";
 import { Link } from "expo-router";
 
