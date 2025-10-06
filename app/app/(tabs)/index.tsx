@@ -5,7 +5,6 @@ import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 // app/index.tsx
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
 import { Link } from "expo-router";
 
 export default function HomeScreen() {
