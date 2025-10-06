@@ -56,7 +56,7 @@ export default function SignupScreen() {
 
   return (
     <ImageBackground
-      source={require("../assets/bgPrint.png")}
+      source={require("../../assets/bgPrint.png")}
       style={styles.container}
       resizeMode="cover"
     >
