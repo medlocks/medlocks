@@ -5,11 +5,12 @@ import { auth } from "@/services/firebase";
 import { ActivityIndicator, View } from "react-native";
 
 export default function RootLayout() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const segments = useSegments();
 
+  // Listen to auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
@@ -19,8 +20,9 @@ export default function RootLayout() {
     return unsubscribe;
   }, []);
 
+  // Redirect based on auth state
   useEffect(() => {
-    if (loading) return;
+    if (loading) return; // wait until we know auth state
 
     const inAuthGroup = segments[0] === "auth";
 
@@ -31,21 +33,16 @@ export default function RootLayout() {
     }
   }, [user, loading, segments]);
 
+  // Loading screen while checking auth
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <ActivityIndicator size="large" color="#f0a" />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
+        <ActivityIndicator size="large" color="#ff9db2" />
       </View>
     );
   }
 
-  return <Slot />;
+  return <Slot />; // render child routes
 }
 
 
