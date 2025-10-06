@@ -58,6 +58,7 @@ export default function LoginScreen() {
     <ImageBackground
       source={require("../../assets/bgPrint.png")}
       style={styles.container}
+      resizeMode="contain"
     >
       <View style={styles.inner}>
         <Text style={styles.title}>Welcome Back</Text>
