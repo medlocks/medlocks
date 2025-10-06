@@ -3,26 +3,25 @@ import { Stack, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { ActivityIndicator, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
 
 export default function Layout() {
   const router = useRouter();
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        router.replace("/(tabs)");
+        router.replace("/(tabs)"); // logged in
       } else {
-        router.replace("/auth/login"); 
+        router.replace("/auth/login"); // not logged in
       }
-      setCheckingAuth(false);
+      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => unsubscribe();
   }, []);
 
-  if (checkingAuth) {
+  if (loading) {
     return (
       <View
         style={{
@@ -32,16 +31,19 @@ export default function Layout() {
           backgroundColor: "#fff",
         }}
       >
-        <ActivityIndicator size="large" color="#ff9db2" />
+        <ActivityIndicator size="large" color="#f0a" />
       </View>
     );
   }
 
   return (
-    <>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }} />
-    </>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: "slide_from_right",
+      }}
+    />
   );
 }
+
 
