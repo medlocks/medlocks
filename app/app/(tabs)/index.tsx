@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import React from "react";
 import { Link } from "expo-router";
+import { View, Text, StyleSheet } from "react-native";
 
 export default function HomeScreen() {
   return (
