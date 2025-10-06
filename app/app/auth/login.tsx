@@ -85,7 +85,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 20, backgroundColor: "#fff" },
+  container: { flex: 1, justifyContent: "center", padding: 20, backgroundImage: "medlocks/medlocks/app/assets/bgPrint.svg"},
   title: { fontSize: 24, fontWeight: "700", marginBottom: 16, textAlign: "center" },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, marginBottom: 6 },
   error: { color: "red", marginBottom: 6 },
