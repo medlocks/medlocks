@@ -6,12 +6,15 @@ import {
   Button,
   StyleSheet,
   ImageBackground,
+  ActivityIndicator,
 } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { login } from "@/services/auth";
 import { useRouter } from "expo-router";
+import { db } from "@/services/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 const schema = yup.object().shape({
   email: yup.string().email("Invalid email").required("Email required"),
@@ -31,18 +34,37 @@ export default function LoginScreen() {
     resolver: yupResolver(schema),
   });
   const [firebaseError, setFirebaseError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const onSubmit = async (data: any) => {
     setFirebaseError("");
+    setLoading(true);
+
     try {
-      await login(data.email, data.password);
-      if (!userProfileComplete) {
+      // 1️⃣ Login with Firebase Auth
+      const userCred = await login(data.email, data.password);
+      const uid = userCred.user.uid;
+
+      // 2️⃣ Fetch the user’s Firestore profile
+      const userDocRef = doc(db, "users", uid);
+      const userSnap = await getDoc(userDocRef);
+
+      // 3️⃣ Check if the profile exists and has required fields
+      const profileData = userSnap.data();
+      const profileComplete =
+        profileData &&
+        profileData.hairType &&
+        profileData.hairGoals &&
+        profileData.currentRoutine;
+
+      // 4️⃣ Route based on completeness
+      if (profileComplete) {
+        router.replace("/(tabs)");
+      } else {
         router.replace("/profile/setup");
-        }
-        else{
-            router.replace("/(tabs)");
-        }
+      }
     } catch (error: any) {
+      console.error(error);
       switch (error.code) {
         case "auth/user-not-found":
           setFirebaseError("No account found with this email");
@@ -56,6 +78,8 @@ export default function LoginScreen() {
         default:
           setFirebaseError("Login failed. Please try again.");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,7 +129,12 @@ export default function LoginScreen() {
 
         {firebaseError ? <Text style={styles.error}>{firebaseError}</Text> : null}
 
-        <Button title="Login" onPress={handleSubmit(onSubmit)} />
+        {loading ? (
+          <ActivityIndicator size="large" color="#ff9db2" />
+        ) : (
+          <Button title="Login" onPress={handleSubmit(onSubmit)} />
+        )}
+
         <Text style={styles.link} onPress={() => router.push("/auth/signup")}>
           Need an account? Sign up →
         </Text>
@@ -148,4 +177,3 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 });
-
