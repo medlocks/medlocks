@@ -31,7 +31,6 @@ export default function UserProfile() {
 
   const uid = auth.currentUser?.uid;
 
-  // Load existing profile if available
   useEffect(() => {
     if (!uid) return;
 
