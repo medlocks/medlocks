@@ -36,7 +36,12 @@ export default function LoginScreen() {
     setFirebaseError("");
     try {
       await login(data.email, data.password);
-      router.replace("/(tabs)");
+      if (!userProfileComplete) {
+        router.replace("/profile/setup");
+        }
+        else{
+            router.replace("/(tabs)");
+        }
     } catch (error: any) {
       switch (error.code) {
         case "auth/user-not-found":
