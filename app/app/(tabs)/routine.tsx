@@ -1,130 +1,90 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Button, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { auth, db } from "@/services/firebase";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import dayjs from "dayjs";
-
-type RoutineItem = {
-  id: string;
-  day: string;
-  task: string;
-  completed: boolean;
-};
+import { collection, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
 
 export default function RoutineScreen() {
-  const [routine, setRoutine] = useState<RoutineItem[]>([]);
+  const user = auth.currentUser;
+  const [tasks, setTasks] = useState([
+    { id: "1", name: "Wash hair with shampoo", completed: false },
+    { id: "2", name: "Apply conditioner", completed: false },
+    { id: "3", name: "Use hair mask", completed: false },
+    { id: "4", name: "Apply heat protection", completed: false },
+    { id: "5", name: "Oil scalp massage", completed: false },
+  ]);
   const [loading, setLoading] = useState(true);
 
-  const uid = auth.currentUser?.uid;
-
   useEffect(() => {
-    if (uid) loadRoutine();
-  }, [uid]);
+    const fetchRoutine = async () => {
+      if (!user) return;
+      const docRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(docRef);
 
-  const loadRoutine = async () => {
-    setLoading(true);
-    try {
-      const docRef = doc(db, "users", uid!, "routine", "current");
-      const snapshot = await getDoc(docRef);
-
-      if (snapshot.exists()) {
-        setRoutine(snapshot.data().items);
-      } else {
-        const newRoutine = generateRoutine();
-        await setDoc(docRef, { items: newRoutine });
-        setRoutine(newRoutine);
+      if (userSnap.exists() && userSnap.data().routineTasks) {
+        setTasks(userSnap.data().routineTasks);
       }
-    } catch (err) {
-      console.error("Error loading routine:", err);
-    } finally {
       setLoading(false);
+    };
+    fetchRoutine();
+  }, []);
+
+  const toggleTask = async (id: string) => {
+    const updatedTasks = tasks.map((task) =>
+      task.id === id ? { ...task, completed: !task.completed } : task
+    );
+    setTasks(updatedTasks);
+
+    if (user) {
+      const userRef = doc(db, "users", user.uid);
+      await setDoc(userRef, { routineTasks: updatedTasks }, { merge: true });
     }
   };
 
-  
-  const generateRoutine = (): RoutineItem[] => {
-    const tasks = [
-      "Wash hair with shampoo",
-      "Deep condition / mask",
-      "Apply leave-in conditioner",
-      "Scalp oil massage",
-      "Protective style maintenance",
-      "Trim / detangle session",
-      "Rest day (no product)"
-    ];
-
-    return tasks.map((task, i) => ({
-      id: `${i}`,
-      day: dayjs().add(i, "day").format("dddd"),
-      task,
-      completed: false
-    }));
-  };
-
-  const toggleComplete = async (id: string) => {
-    const updated = routine.map(item =>
-      item.id === id ? { ...item, completed: !item.completed } : item
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#ff9db2" />
+      </View>
     );
-    setRoutine(updated);
-    await updateDoc(doc(db, "users", uid!, "routine", "current"), { items: updated });
-  };
-
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
-
-  const today = dayjs().format("dddd");
-  const todayTask = routine.find(r => r.day === today);
+  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Your Hair Routine</Text>
-
-      {todayTask ? (
-        <View style={styles.todayBox}>
-          <Text style={styles.todayTitle}>Today: {todayTask.day}</Text>
-          <Text style={styles.taskText}>{todayTask.task}</Text>
-          <Button
-            title={todayTask.completed ? "Completed ✅" : "Mark Complete"}
-            onPress={() => toggleComplete(todayTask.id)}
-            color={todayTask.completed ? "gray" : "#ff9db2"}
-          />
-        </View>
-      ) : (
-        <Text>No task today — rest day 🧘‍♀️</Text>
-      )}
-
-      <Text style={styles.subtitle}>This Week</Text>
       <FlatList
-        data={routine}
-        keyExtractor={item => item.id}
+        data={tasks}
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => toggleComplete(item.id)}>
-            <View style={styles.item}>
-              <Text style={item.completed ? styles.doneText : styles.itemText}>
-                {item.day}: {item.task}
-              </Text>
-            </View>
+          <TouchableOpacity
+            style={[styles.task, item.completed && styles.taskDone]}
+            onPress={() => toggleTask(item.id)}
+          >
+            <Text style={[styles.taskText, item.completed && styles.taskTextDone]}>
+              {item.name}
+            </Text>
           </TouchableOpacity>
         )}
       />
-
-      <Button title="Regenerate Routine" onPress={loadRoutine} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  title: { fontSize: 24, fontWeight: "700", marginBottom: 16 },
-  subtitle: { fontSize: 18, fontWeight: "600", marginTop: 20 },
-  todayBox: {
+  container: { flex: 1, backgroundColor: "#fff", padding: 20 },
+  title: { fontSize: 22, fontWeight: "700", textAlign: "center", marginBottom: 20 },
+  task: {
     padding: 16,
-    backgroundColor: "#ffeaf0",
-    borderRadius: 12,
-    marginBottom: 16
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    marginBottom: 10,
+    backgroundColor: "#fafafa",
   },
-  todayTitle: { fontSize: 20, fontWeight: "700", marginBottom: 4 },
-  taskText: { fontSize: 16, marginBottom: 8 },
-  item: { paddingVertical: 8 },
-  itemText: { fontSize: 16 },
-  doneText: { fontSize: 16, textDecorationLine: "line-through", color: "gray" }
+  taskDone: {
+    backgroundColor: "#ff9db2",
+    borderColor: "#ff9db2",
+  },
+  taskText: { fontSize: 16 },
+  taskTextDone: { color: "#fff", textDecorationLine: "line-through" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
 });
