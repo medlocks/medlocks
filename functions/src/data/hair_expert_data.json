@@ -1,0 +1,92 @@
+{
+  "hairTypes": ["straight", "wavy", "curly", "coily", "fine", "coarse", "high_porosity", "low_porosity"],
+  "goals": ["growth", "strength", "shine", "hydration", "volume", "scalp_health", "repair"],
+  "rules": {
+    "high_porosity": {
+      "tips": [
+        "Avoid daily sulfates; use gentle sulfate-free cleansers.",
+        "Use weekly protein masks to reinforce the hair cortex.",
+        "Always seal wet hair with an oil to lock moisture."
+      ],
+      "recommendedIngredients": ["hydrolyzed_keratin", "ceramides", "shea_butter"]
+    },
+    "low_porosity": {
+      "tips": [
+        "Use warm water or steam to help product penetration.",
+        "Use lighter oils (jojoba, argan) and avoid heavy butters daily.",
+        "Clarify every 2–3 weeks if product buildup appears."
+      ],
+      "recommendedIngredients": ["jojoba_oil", "glycerin"]
+    }
+  },
+  "goalProfiles": {
+    "growth": {
+      "actions": ["scalp_massage", "minimize_breakage", "weekly_nutrient_mask"],
+      "notes": "Focus on scalp circulation and protecting hair from mechanical stress."
+    },
+    "repair": {
+      "actions": ["protein_mask_weekly", "gentle_shampoo", "reconstruction_treatment"],
+      "notes": "Introduce protein treatments but monitor for brittleness."
+    },
+    "shine": {
+      "actions": ["cold_rinse", "light_serum_post_style"],
+      "notes": "Seal cuticle and avoid heavy oils before styling."
+    }
+  },
+  "interventions": {
+    "protein_mask_weekly": {
+      "id": "protein_mask_weekly",
+      "name": "Weekly protein mask",
+      "instructions": "Apply to lengths after shampoo, leave 10–20 minutes, rinse with cool water.",
+      "ingredients": ["hydrolyzed_keratin"],
+      "defaultTime": "19:00"
+    },
+    "scalp_massage": {
+      "id": "scalp_massage",
+      "name": "Scalp massage (3x/week)",
+      "instructions": "Massage scalp 2–5 minutes using fingertips or a scalp brush.",
+      "ingredients": ["jojoba_oil"],
+      "defaultTime": "21:00"
+    },
+    "cold_rinse": {
+      "id": "cold_rinse",
+      "name": "Cold water rinse",
+      "instructions": "Rinse hair with cool water to smooth the cuticle after conditioning.",
+      "ingredients": [],
+      "defaultTime": "08:10"
+    },
+    "weekly_nutrient_mask": {
+      "id": "weekly_nutrient_mask",
+      "name": "Weekly nutrient mask",
+      "instructions": "Apply a nutrient-rich mask once per week for 10–20 minutes.",
+      "ingredients": ["vitamin_e", "niacinamide"],
+      "defaultTime": "19:30"
+    },
+    "gentle_shampoo": {
+      "id": "gentle_shampoo",
+      "name": "Gentle sulfate-free shampoo",
+      "instructions": "Use gentle cleanser 1–3x per week depending on scalp oiliness.",
+      "ingredients": [],
+      "defaultTime": "08:00"
+    },
+    "light_serum_post_style": {
+      "id": "light_serum_post_style",
+      "name": "Light finishing serum",
+      "instructions": "Apply 1–2 drops to ends after styling for shine, avoid roots.",
+      "ingredients": ["argan_oil"],
+      "defaultTime": "08:30"
+    }
+  },
+  "templates": {
+    "default_growth": {
+      "title": "4-week Growth Starter",
+      "weeks": [
+        { "week": 1, "focus": "Scalp health + reduce breakage", "actions": ["scalp_massage", "gentle_shampoo", "weekly_nutrient_mask"] },
+        { "week": 2, "focus": "Strengthen strands", "actions": ["protein_mask_weekly", "scalp_massage"] },
+        { "week": 3, "focus": "Maintain and monitor", "actions": ["gentle_shampoo", "cold_rinse"] },
+        { "week": 4, "focus": "Consistency", "actions": ["scalp_massage", "light_serum_post_style"] }
+      ],
+      "notes": "Stick to these actions and report weekly during check-ins."
+    }
+  }
+}

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, TextInput, Button, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { db, auth } from "@/services/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useRouter } from "expo-router";
+import { generateHairPlan } from "../../services/aiHairPlan";
 
 const hairTypes = ["Straight", "Wavy", "Curly", "Coily"];
 const hairGoalsOptions = ["Growth", "Health", "Volume", "Shine", "Repair"];
@@ -27,10 +28,11 @@ export default function UserProfile() {
       products: "",
     },
   });
-  const [loading, setLoading] = useState(true);
 
+  const [loading, setLoading] = useState(true);
   const uid = auth.currentUser?.uid;
 
+  // Fetch existing profile
   useEffect(() => {
     if (!uid) return;
 
@@ -63,8 +65,27 @@ export default function UserProfile() {
       updatedAt: new Date(),
     };
 
+    // Save user profile
     await setDoc(doc(db, "users", uid), userDoc, { merge: true });
-    router.replace("/(tabs)"); // go to main app
+
+    try {
+      // --- AI Integration: generate bespoke hair plan ---
+      const aiPlan = await generateHairPlan({
+        hairType: data.hairType,
+        hairGoals: data.hairGoals,
+        currentRoutine: userDoc.currentRoutine,
+        products: userDoc.currentRoutine.products,
+      });
+
+      // Save AI-generated plan to Firestore
+      await setDoc(doc(db, "users", uid), { hairPlan: aiPlan }, { merge: true });
+
+    } catch (err: any) {
+      console.error("AI generation failed:", err.message);
+      // Optional: show alert to user
+    }
+
+    router.replace("/(tabs)"); // Go to main app
   };
 
   if (loading) {
@@ -160,7 +181,7 @@ export default function UserProfile() {
         )}
       />
 
-      <Button title="Save Profile" onPress={handleSubmit(onSubmit)} />
+      <Button title="Save Profile & Generate Plan" onPress={handleSubmit(onSubmit)} />
     </ScrollView>
   );
 }
