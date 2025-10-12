@@ -1,8 +1,8 @@
 import React from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useRoutineNotifications } from "@/hooks/useRoutineNotifications";
-import { useNotificationSetup } from "@/hooks/useNotificationSetup";
+import { useRoutineNotifications } from "../../hooks/useRoutineNotifications";
+import { useNotificationSetup } from "../../hooks/useNotificationSetup";
 
 export default function TabLayout() {
   useNotificationSetup();        

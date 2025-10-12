@@ -1,13 +1,8 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { getFunctions } from "firebase/functions";
 
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyAQZnMWFdH7OZbXEA2vzxFjx3lvaaZOIik",
   authDomain: "medlocks-f3fe7.firebaseapp.com",
@@ -15,10 +10,12 @@ const firebaseConfig = {
   storageBucket: "medlocks-f3fe7.firebasestorage.app",
   messagingSenderId: "29663588265",
   appId: "1:29663588265:web:d497cb0088a8c675945eb8",
-  measurementId: "G-FL43SJDPC2"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+// Exported helpers for the rest of the app
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const functions = getFunctions(app); // used for httpsCallable
+export default app;
