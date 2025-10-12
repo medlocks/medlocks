@@ -15,6 +15,7 @@ const schema = yup.object().shape({
   hairType: yup.string().required("Select your hair type"),
   hairGoals: yup.array().min(1, "Select at least one goal"),
   washFrequency: yup.string().required("Enter wash frequency"),
+  products: yup.string(),
 });
 
 export default function UserProfile() {
@@ -131,13 +132,13 @@ export default function UserProfile() {
         render={({ field: { value, onChange } }) => (
           <View style={styles.optionContainer}>
             {hairGoalsOptions.map((goal) => {
-              const selected = value.includes(goal);
+              const selected = value?.includes(goal);
               return (
                 <TouchableOpacity
                   key={goal}
                   style={[styles.option, selected && styles.optionSelected]}
                   onPress={() => {
-                    if (selected) onChange(value.filter((g: string) => g !== goal));
+                    if (selected) onChange(value?.filter((g: string) => g !== goal));
                     else onChange([...value, goal]);
                   }}
                 >
