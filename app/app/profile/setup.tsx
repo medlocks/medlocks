@@ -83,7 +83,6 @@ export default function UserProfile() {
 
     } catch (err: any) {
       console.error("AI generation failed:", err.message);
-      // Optional: show alert to user
     }
 
     router.replace("/(tabs)"); // Go to main app
@@ -139,7 +138,7 @@ export default function UserProfile() {
                   style={[styles.option, selected && styles.optionSelected]}
                   onPress={() => {
                     if (selected) onChange(value?.filter((g: string) => g !== goal));
-                    else onChange([...value, goal]);
+                    else onChange([...(value || []), goal]);
                   }}
                 >
                   <Text style={selected ? styles.optionTextSelected : styles.optionText}>{goal}</Text>
