@@ -22,6 +22,7 @@ export async function generateAIHairPlan(firestore: Firestore, profile: HairProf
 You are an expert trichologist/hair care coach.
 Create a personalized 4-week hair care routine for this user.
 When building a routine ignore any existing products they have if they are counter productive.
+Give specific hair product recommendations with size/model etc - but keep them broader (not brand specific) in actions.
 
 Hair type: ${profile.hairType}
 Hair goals: ${profile.hairGoals.join(", ")}

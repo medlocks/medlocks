@@ -1,77 +1,51 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  FlatList,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
+} from "react-native";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/services/firebase";
 
-type Product = {
+interface Product {
   id: string;
   name: string;
-  description: string;
-  suitableFor: string[];
-  goalTags: string[];
-};
-
-const PRODUCT_DB: Product[] = [
-  {
-    id: "1",
-    name: "Medlocks Nourish Shampoo",
-    description: "Strengthens and hydrates dry or damaged hair.",
-    suitableFor: ["dry", "wavy", "curly"],
-    goalTags: ["hydration", "damage-repair"],
-  },
-  {
-    id: "2",
-    name: "Medlocks Smooth Serum",
-    description: "Adds shine and reduces frizz for sleek styles.",
-    suitableFor: ["straight", "frizzy", "coarse"],
-    goalTags: ["shine", "frizz-control"],
-  },
-  {
-    id: "3",
-    name: "Medlocks Curl Define Cream",
-    description: "Defines and holds curls without stiffness.",
-    suitableFor: ["curly", "coily"],
-    goalTags: ["definition", "moisture"],
-  },
-  {
-    id: "4",
-    name: "Medlocks Scalp Restore Oil",
-    description: "Stimulates growth and nourishes scalp health.",
-    suitableFor: ["all"],
-    goalTags: ["growth", "scalp-care"],
-  },
-];
+  description?: string;
+}
 
 export default function RecommendationsScreen() {
   const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [recommended, setRecommended] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchAIRecommendations = async () => {
       const user = auth.currentUser;
       if (!user) return;
 
-      const docRef = doc(db, "users", user.uid);
-      const docSnap = await getDoc(docRef);
+      const planRef = doc(db, "users", user.uid, "plan", "current");
+      const planSnap = await getDoc(planRef);
 
-      if (docSnap.exists()) {
-        const profile = docSnap.data();
-        setUserProfile(profile);
-
-        const filtered = PRODUCT_DB.filter(
-          (p) =>
-            (p.suitableFor.includes(profile.hairType) || p.suitableFor.includes("all")) &&
-            p.goalTags.some((g) => profile.hairGoals?.includes(g))
-        );
-
-        setRecommended(filtered);
+      if (planSnap.exists()) {
+        const data = planSnap.data();
+        if (data?.recommendedProducts?.length) {
+          const aiList = data.recommendedProducts.map((p: string, i: number) => ({
+            id: `ai-${i}`,
+            name: p,
+            description: "Chosen for optimal hair health.",
+          }));
+          setProducts(aiList);
+        }
       }
 
       setLoading(false);
     };
 
-    fetchUserProfile();
+    fetchAIRecommendations();
   }, []);
 
   if (loading) {
@@ -83,52 +57,141 @@ export default function RecommendationsScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Recommended For You</Text>
-      {recommended.length === 0 ? (
-        <Text style={styles.empty}>No products matched yet — update your profile!</Text>
-      ) : (
-        <FlatList
-          data={recommended}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Text style={styles.productName}>{item.name}</Text>
-              <Text style={styles.description}>{item.description}</Text>
-              <TouchableOpacity style={styles.button}>
-                <Text style={styles.buttonText}>Add to Routine</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        />
-      )}
-    </View>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
+        <Text style={styles.title}>Your Recommended Products</Text>
+        <Text style={styles.subtitle}>
+          Curated exclusively for your hair type and goals 💫
+        </Text>
+
+        {products.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🧴</Text>
+            <Text style={styles.emptyTitle}>No Recommendations Yet</Text>
+            <Text style={styles.emptyText}>
+              Generate your AI routine to see personalized product picks made just for you.
+            </Text>
+            <TouchableOpacity
+              onPress={() => alert("Navigate to AI Generator")}
+              style={styles.emptyButton}
+            >
+              <Text style={styles.emptyButtonText}>Generate My Routine</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={products}
+            keyExtractor={(item) => item.id}
+            scrollEnabled={false}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <Text style={styles.productName}>{item.name}</Text>
+                <Text style={styles.description}>{item.description}</Text>
+              </View>
+            )}
+          />
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 20 },
-  title: { fontSize: 22, fontWeight: "700", textAlign: "center", marginBottom: 16 },
-  empty: { textAlign: "center", color: "#888", marginTop: 50 },
-  card: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    backgroundColor: "#fafafa",
+  safe: {
+    flex: 1,
+    backgroundColor: "#fff",
   },
-  productName: { fontSize: 18, fontWeight: "600", marginBottom: 8 },
-  description: { color: "#555", marginBottom: 12 },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 10,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#222",
+    textAlign: "center",
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    borderWidth: 1,
+    borderColor: "#f3f3f3",
+  },
+  productName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#222",
+    marginBottom: 8,
+  },
+  description: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 14,
+    lineHeight: 20,
+  },
   button: {
     backgroundColor: "#ff9db2",
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   buttonText: {
     color: "#fff",
     textAlign: "center",
     fontWeight: "600",
+    fontSize: 15,
   },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyState: {
+    alignItems: "center",
+    marginTop: 80,
+    paddingHorizontal: 20,
+  },
+  emptyEmoji: {
+    fontSize: 50,
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 6,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#777",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  emptyButton: {
+    backgroundColor: "#ff9db2",
+    paddingVertical: 12,
+    paddingHorizontal: 26,
+    borderRadius: 14,
+  },
+  emptyButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
 });
+
