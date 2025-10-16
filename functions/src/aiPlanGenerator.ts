@@ -1,5 +1,5 @@
-import OpenAI from "openai";
 import { Firestore } from "firebase-admin/firestore";
+import OpenAI from "openai";
 
 export interface HairProfile {
   uid: string;
@@ -13,38 +13,56 @@ export interface HairProfile {
 }
 
 export async function generateAIHairPlan(firestore: Firestore, profile: HairProfile) {
-  const OpenAI = (await import("openai")).default;
   const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY, 
+    apiKey: process.env.OPENAI_KEY_SECRET, // Your environment variable
   });
 
+  // Prompt for AI
   const prompt = `
-You are an expert hair coach.
-Create a fully personalized 4-week hair care plan.
+You are an expert trichologist/hair care coach.
+Create a personalized 4-week hair care routine for this user.
+When building a routine ignore any existing products they have if they are counter productive.
 
 Hair type: ${profile.hairType}
 Hair goals: ${profile.hairGoals.join(", ")}
 Wash frequency: ${profile.currentRoutine.washFrequency}
 Current products: ${profile.products.join(", ")}
 
-Return valid JSON with keys:
-routine (array), recommendedProducts (array), tips (array).
-  `;
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.7,
-  });
-
-  const text = completion.choices[0].message?.content ?? "{}";
+Return JSON ONLY with keys:
+- routine: array of { week: number, day: string, action: string, details: string }
+- recommendedProducts: array of strings
+- tips: array of strings
+No additional text, no markdown, no comments.
+`;
 
   try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+    });
+
+    let text = completion.choices[0].message?.content ?? "{}";
+
+    // Remove backticks or markdown artifacts
+    text = text.replace(/```json|```/g, "").trim();
+
     const plan = JSON.parse(text);
-    await firestore.doc(`users/${profile.uid}/plan/current`).set(plan, { merge: true });
+
+    // Save plan in Firestore
+    await firestore.doc(`users/${profile.uid}/plan/current`).set(
+      {
+        ...plan,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
     return plan;
   } catch (err) {
-    console.error("AI response invalid JSON:", err);
-    return { raw: text };
+    console.error("Error generating AI hair plan:", err);
+    return { raw: err instanceof Error ? err.message : String(err) };
   }
 }
+

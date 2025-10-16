@@ -3,185 +3,218 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
-  Platform,
+  SafeAreaView,
 } from "react-native";
+import { Calendar, DateData } from "react-native-calendars";
 import { auth, db } from "@/services/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import * as Notifications from "expo-notifications";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { Switch, Button } from "react-native-paper";
+import { doc, getDoc } from "firebase/firestore";
+import { Button } from "react-native-paper";
 
-interface RoutineTask {
-  id: string;
-  name: string;
-  completed: boolean;
-  time: string; // "HH:mm"
-  active: boolean;
+interface Task {
+  action: string;
+  details: string;
+  time?: string;
 }
 
 export default function RoutineScreen() {
   const user = auth.currentUser;
-  const [tasks, setTasks] = useState<RoutineTask[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<RoutineTask | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
+  const [tasksByDate, setTasksByDate] = useState<Record<string, Task[]>>({});
 
   useEffect(() => {
     const fetchRoutine = async () => {
       if (!user) return;
-      const docRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(docRef);
-
-      if (userSnap.exists() && userSnap.data().routineTasks) {
-        setTasks(userSnap.data().routineTasks);
-      } else {
-        const defaultTasks: RoutineTask[] = [
-          { id: "1", name: "Wash hair with shampoo", completed: false, time: "08:00", active: true },
-          { id: "2", name: "Apply conditioner", completed: false, time: "08:10", active: true },
-          { id: "3", name: "Use hair mask", completed: false, time: "20:00", active: true },
-          { id: "4", name: "Apply heat protection", completed: false, time: "07:50", active: true },
-          { id: "5", name: "Oil scalp massage", completed: false, time: "21:00", active: true },
-        ];
-        setTasks(defaultTasks);
-        await setDoc(docRef, { routineTasks: defaultTasks }, { merge: true });
+      const docRef = doc(db, "users", user.uid, "plan", "current");
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) {
+        setLoading(false);
+        return;
       }
+
+      const data = snap.data();
+      const map: Record<string, Task[]> = {};
+
+      const getDayOffset = (day: string) => {
+        const days = [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+        ];
+        return days.indexOf(day);
+      };
+
+      const planStart = new Date();
+
+      data.routine?.forEach((r: any) => {
+        const dayOffset = (r.week - 1) * 7 + getDayOffset(r.day);
+        const date = new Date(planStart);
+        date.setDate(date.getDate() + dayOffset);
+        const key = date.toISOString().split("T")[0];
+        if (!map[key]) map[key] = [];
+        map[key].push({
+          action: r.action,
+          details: r.details,
+          time: r.time || "08:00",
+        });
+      });
+
+      setTasksByDate(map);
       setLoading(false);
     };
 
     fetchRoutine();
   }, []);
 
-  useEffect(() => {
-    tasks.forEach(async (task) => {
-      if (!task.active) return;
-      const [hour, minute] = task.time.split(":").map(Number);
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `Time to ${task.name} 💆🏽‍♀️`,
-          body: "Stick to your routine for amazing results!",
-        },
-        trigger: { hour, minute, repeats: true },
-      });
-    });
-  }, [tasks]);
-
-  const saveTasks = async (updatedTasks: RoutineTask[]) => {
-    setTasks(updatedTasks);
-    if (!user) return;
-    const userRef = doc(db, "users", user.uid);
-    await setDoc(userRef, { routineTasks: updatedTasks }, { merge: true });
-  };
-
-  const toggleTask = (id: string) => {
-    const updated = tasks.map((t) =>
-      t.id === id ? { ...t, completed: !t.completed } : t
-    );
-    saveTasks(updated);
-  };
-
-  const toggleActive = (id: string) => {
-    const updated = tasks.map((t) =>
-      t.id === id ? { ...t, active: !t.active } : t
-    );
-    saveTasks(updated);
-  };
-
-  const showTimePicker = (task: RoutineTask) => {
-    setSelectedTask(task);
-    setPickerVisible(true);
-  };
-
-  const onTimeChange = (_event: any, selected?: Date) => {
-    setPickerVisible(Platform.OS === "ios");
-    if (selected && selectedTask) {
-      const hours = selected.getHours().toString().padStart(2, "0");
-      const minutes = selected.getMinutes().toString().padStart(2, "0");
-      const updated = tasks.map((t) =>
-        t.id === selectedTask.id ? { ...t, time: `${hours}:${minutes}` } : t
-      );
-      saveTasks(updated);
-      setSelectedTask(null);
-    }
-  };
-
-  if (loading) {
+  if (loading)
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#ff9db2" />
       </View>
     );
-  }
+
+  const markedDates = Object.keys(tasksByDate).reduce(
+    (acc, date) => {
+      acc[date] = { marked: true, dotColor: "#ff9db2" };
+      return acc;
+    },
+    {
+      [selectedDate]: { selected: true, selectedColor: "#ff9db2" },
+    } as Record<string, any>
+  );
+
+  const tasks = tasksByDate[selectedDate] || [];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Your Hair Routine</Text>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Your Hair Calendar</Text>
 
-      <FlatList
-        data={tasks}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.taskWrapper}>
-            <TouchableOpacity
-              style={[styles.task, item.completed && styles.taskDone]}
-              onPress={() => toggleTask(item.id)}
-            >
-              <Text style={[styles.taskText, item.completed && styles.taskTextDone]}>
-                {item.name}
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.taskControls}>
-              <Button
-                mode="outlined"
-                onPress={() => showTimePicker(item)}
-              >
-                {item.time}
-              </Button>
-              <Switch value={item.active} onValueChange={() => toggleActive(item.id)} />
-            </View>
-          </View>
-        )}
-      />
-
-      {pickerVisible && (
-        <DateTimePicker
-          value={new Date()}
-          mode="time"
-          is24Hour={true}
-          display="default"
-          onChange={onTimeChange}
+        <Calendar
+          onDayPress={(day: DateData) => setSelectedDate(day.dateString)}
+          markedDates={markedDates}
+          theme={{
+            selectedDayBackgroundColor: "#ff9db2",
+            todayTextColor: "#ff9db2",
+            arrowColor: "#ff9db2",
+            monthTextColor: "#222",
+            textDayFontWeight: "500",
+            textMonthFontWeight: "700",
+            textDayHeaderFontWeight: "600",
+          }}
+          style={styles.calendar}
         />
-      )}
-    </View>
+
+        {tasks.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>😢 No tasks in your calendar yet!</Text>
+            <Text style={styles.emptySubText}>
+              Generate your bespoke AI routine and start your healthy hair journey today.
+            </Text>
+            <Button
+              mode="contained"
+              onPress={() => alert("Navigate to AI generator")}
+              style={styles.emptyButton}
+            >
+              Generate Routine
+            </Button>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.dayTitle}>Tasks for {selectedDate}</Text>
+            <FlatList
+              data={tasks}
+              keyExtractor={(item, idx) => `${idx}-${item.action}`}
+              renderItem={({ item }) => (
+                <View style={styles.taskCard}>
+                  <Text style={styles.taskAction}>{item.action}</Text>
+                  <Text style={styles.taskDetails}>{item.details}</Text>
+                  <Text style={styles.taskTime}>⏰ {item.time}</Text>
+                </View>
+              )}
+              contentContainerStyle={{ paddingBottom: 40 }}
+            />
+          </>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 20 },
-  title: { fontSize: 22, fontWeight: "700", textAlign: "center", marginBottom: 20 },
-  taskWrapper: { marginBottom: 20 },
-  task: {
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
+  safe: { flex: 1, backgroundColor: "#fff" },
+  container: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    textAlign: "center",
+    marginVertical: 15,
+    color: "#222",
+  },
+  calendar: {
+    borderRadius: 16,
+    elevation: 3,
+    backgroundColor: "#fff",
+    marginBottom: 15,
+  },
+  dayTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#444",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  taskCard: {
     backgroundColor: "#fafafa",
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
-  taskDone: {
-    backgroundColor: "#ff9db2",
-    borderColor: "#ff9db2",
-  },
-  taskText: { fontSize: 16 },
-  taskTextDone: { color: "#fff", textDecorationLine: "line-through" },
-  taskControls: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 8,
-  },
+  taskAction: { fontSize: 16, fontWeight: "700", color: "#333" },
+  taskDetails: { fontSize: 14, color: "#666", marginTop: 4 },
+  taskTime: { fontSize: 13, color: "#999", marginTop: 8 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 40,
+    paddingHorizontal: 20,
+  },
+  emptyText: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#555",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  emptySubText: {
+    fontSize: 16,
+    color: "#888",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  emptyButton: {
+    backgroundColor: "#ff9db2",
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+  },
 });

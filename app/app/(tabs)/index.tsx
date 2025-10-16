@@ -12,7 +12,7 @@ export default function HomeScreen() {
       </Text>
 
       {/* Example navigation link */}
-      <Link href="/signup" style={styles.link}>
+      <Link href="../profile/setup" style={styles.link}>
         Get Started →
       </Link>
     </View>

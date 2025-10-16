@@ -24,8 +24,14 @@ export function useNotificationSetup() {
         return;
       }
 
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
-      console.log("Expo Push Token:", token);
+
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({
+        projectId: "medlocks-f3fe7",
+    });
+
+    const token = tokenResponse.data;
+    console.log("Expo Push Token:", token);
+
 
       if (Platform.OS === "android") {
         await Notifications.setNotificationChannelAsync("default", {

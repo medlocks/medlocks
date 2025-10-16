@@ -1,34 +1,49 @@
 import * as admin from "firebase-admin";
-import { onCall, HttpsError, CallableRequest } from "firebase-functions/v2/https";
+import * as functions from "firebase-functions/v2";
+import express from "express";
+import cors from "cors";
 import { generateAIHairPlan, HairProfile } from "./aiPlanGenerator";
-
 
 admin.initializeApp();
 const firestore = admin.firestore();
 
-export const createAIHairPlan = onCall(
+const app = express();
+
+// ✅ Parse JSON bodies
+app.use(express.json());
+
+// ✅ CORS for localhost & deployed origin
+app.use(
+  cors({
+    origin: ["http://localhost:8081"],
+  })
+);
+
+// ✅ POST endpoint for AI hair plan
+app.post("/", async (req, res) => {
+  try {
+    const { profile }: { profile: HairProfile } = req.body;
+
+    if (!profile?.uid) {
+      return res.status(401).json({ error: "Missing UID or unauthorized." });
+    }
+
+    const plan = await generateAIHairPlan(firestore, profile);
+    return res.status(200).json({ success: true, plan });
+  } catch (err: any) {
+    console.error("Error generating AI hair plan:", err);
+    return res.status(500).json({ error: err.message || "Internal server error" });
+  }
+});
+
+// ✅ Export as v2 HTTPS function with secret attached
+export const createAIHairPlan = functions.https.onRequest(
   {
     region: "us-central1",
-    secrets: ["OPENAI_API_KEY"], 
     timeoutSeconds: 120,
     memory: "512MiB",
+    secrets: ["OPENAI_KEY_SECRET"], // <- attach Firebase secret
   },
-  async (request: CallableRequest<{ profile: HairProfile }>) => {
-    const { auth, data } = request;
-
-    if (!auth?.uid) {
-      throw new HttpsError("unauthenticated", "You must be logged in.");
-    }
-
-    const profile: HairProfile = { ...data.profile, uid: auth.uid };
-
-    try {
-      const plan = await generateAIHairPlan(firestore, profile);
-      return { success: true, plan };
-    } catch (err: any) {
-      console.error("Error generating AI hair plan:", err);
-      throw new HttpsError("internal", "Failed to generate AI hair plan.");
-    }
-  }
+  app
 );
 

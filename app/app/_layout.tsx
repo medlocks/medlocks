@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/services/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/services/firebase";
 import { ActivityIndicator, View } from "react-native";
 
 export default function RootLayout() {
@@ -9,31 +10,64 @@ export default function RootLayout() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const segments = useSegments();
+  const redirectRef = useRef(false); // prevents multiple redirects
 
-  // Listen to auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
     });
-
     return unsubscribe;
   }, []);
 
-  // Redirect based on auth state
   useEffect(() => {
-    if (loading) return; // wait until we know auth state
+    if (loading || redirectRef.current) return;
 
-    const inAuthGroup = segments[0] === "auth";
+    const inAuth = segments[0] === "auth";
+    const inSetup = segments[0] === "profile" && segments[1] === "setup";
 
-    if (!user && !inAuthGroup) {
-      router.replace("/auth/login");
-    } else if (user && inAuthGroup) {
-      router.replace("/(tabs)");
-    }
-  }, [user, loading, segments]);
+    const checkProfile = async () => {
+      if (!user && !inAuth) {
+        redirectRef.current = true;
+        router.replace("/auth/login");
+        return;
+      }
 
-  // Loading screen while checking auth
+      if (user) {
+        try {
+          const userRef = doc(db, "users", user.uid);
+          const snapshot = await getDoc(userRef);
+          const data = snapshot.exists() ? snapshot.data() : null;
+
+          const hasHairType = !!data?.hairType;
+          const hasHairGoals = Array.isArray(data?.hairGoals) && data.hairGoals.length > 0;
+
+          if (!snapshot.exists() || !hasHairType || !hasHairGoals) {
+            if (!inSetup) {
+              redirectRef.current = true;
+              router.replace("/profile/setup");
+            }
+            return;
+          }
+
+          // User has profile; redirect away from auth/setup pages
+          if (inAuth || inSetup) {
+            redirectRef.current = true;
+            router.replace("/(tabs)");
+          }
+        } catch (err) {
+          console.error("Error checking user profile:", err);
+          if (!inSetup) {
+            redirectRef.current = true;
+            router.replace("/profile/setup");
+          }
+        }
+      }
+    };
+
+    checkProfile();
+  }, [user, loading, segments, router]);
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
@@ -42,7 +76,6 @@ export default function RootLayout() {
     );
   }
 
-  return <Slot />; // render child routes
+  return <Slot />;
 }
-
 
