@@ -11,6 +11,7 @@ import { Calendar, DateData } from "react-native-calendars";
 import { auth, db } from "@/services/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { Button } from "react-native-paper";
+import { useRouter } from "expo-router";
 
 interface Task {
   action: string;
@@ -20,6 +21,7 @@ interface Task {
 
 export default function RoutineScreen() {
   const user = auth.currentUser;
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
@@ -31,6 +33,7 @@ export default function RoutineScreen() {
       if (!user) return;
       const docRef = doc(db, "users", user.uid, "plan", "current");
       const snap = await getDoc(docRef);
+
       if (!snap.exists()) {
         setLoading(false);
         return;
@@ -113,7 +116,7 @@ export default function RoutineScreen() {
           style={styles.calendar}
         />
 
-        {tasks.length === 0 ? (
+        {Object.keys(tasksByDate).length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>😢 No tasks in your calendar yet!</Text>
             <Text style={styles.emptySubText}>
@@ -121,11 +124,18 @@ export default function RoutineScreen() {
             </Text>
             <Button
               mode="contained"
-              onPress={() => alert("Navigate to AI generator")}
+              onPress={() => router.push("/profile")}
               style={styles.emptyButton}
             >
               Generate Routine
             </Button>
+          </View>
+        ) : tasks.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>🎀 No tasks for today</Text>
+            <Text style={styles.emptySubText}>
+              Check another day to see what’s next in your routine.
+            </Text>
           </View>
         ) : (
           <>
@@ -167,6 +177,10 @@ const styles = StyleSheet.create({
     elevation: 3,
     backgroundColor: "#fff",
     marginBottom: 15,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   dayTitle: {
     fontSize: 20,
@@ -210,6 +224,7 @@ const styles = StyleSheet.create({
     color: "#888",
     textAlign: "center",
     marginBottom: 20,
+    paddingHorizontal: 10,
   },
   emptyButton: {
     backgroundColor: "#ff9db2",

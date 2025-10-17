@@ -3,10 +3,11 @@ import {
   View,
   Text,
   TextInput,
-  Button,
-  ScrollView,
   TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
   StyleSheet,
+  SafeAreaView,
 } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -16,6 +17,7 @@ import { useRouter } from "expo-router";
 import { generateHairPlan } from "@/services/aiHairPlan";
 import { db, auth } from "@/services/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
+import { LinearGradient } from "expo-linear-gradient";
 
 // ------------------ Auth Hook ------------------
 const useAuth = () => {
@@ -67,10 +69,9 @@ export default function UserProfile() {
     },
   });
 
-  // Fetch user profile from Firestore
+  // Fetch user profile
   useEffect(() => {
     if (!user) return;
-
     const fetchProfile = async () => {
       try {
         const docRef = doc(db, "users", user.uid);
@@ -91,21 +92,11 @@ export default function UserProfile() {
         setLoading(false);
       }
     };
-
     fetchProfile();
   }, [user]);
 
-  // Handle form submission + AI generation
   const onSubmit = async (data: any) => {
-    if (authLoading) {
-      alert("Auth is still loading, please wait.");
-      return;
-    }
-    if (!user) {
-      alert("You must be logged in to generate a hair plan.");
-      return;
-    }
-
+    if (authLoading || !user) return alert("Please log in first.");
     setSubmitting(true);
 
     const productsArray = data.products
@@ -114,39 +105,32 @@ export default function UserProfile() {
       .filter((p: string) => p.length > 0);
 
     const userDoc = {
-      hairType: data.hairType,
-      hairGoals: data.hairGoals,
-      currentRoutine: {
-        washFrequency: data.washFrequency,
-        products: productsArray,
-      },
-      products: productsArray,
-      updatedAt: new Date(),
-      uid: user.uid,
-    };
+  hairType: data.hairType,
+  hairGoals: data.hairGoals,
+  products: productsArray, // ✅ add this line
+  currentRoutine: {
+    washFrequency: data.washFrequency,
+    products: productsArray,
+  },
+  updatedAt: new Date(),
+  uid: user.uid,
+};
+
 
     try {
-      // 1️⃣ Save user profile
       await setDoc(doc(db, "users", user.uid), userDoc, { merge: true });
-
-      // 2️⃣ Generate AI Hair Plan
       console.log("🧠 Sending AI request payload:", userDoc);
-
       const aiPlan = await generateHairPlan(userDoc);
-
       console.log("✅ AI Hair Plan received:", aiPlan);
-
-      // 3️⃣ Save AI-generated plan
       await setDoc(
         doc(db, "users", user.uid),
         { hairPlan: aiPlan },
         { merge: true }
       );
-
       router.replace("/(tabs)");
-    } catch (err: any) {
+    } catch (err) {
       console.error("💥 AI generation failed:", err);
-      alert("Failed to generate AI hair plan. Please try again.");
+      alert("Failed to generate AI hair plan.");
     } finally {
       setSubmitting(false);
     }
@@ -155,7 +139,8 @@ export default function UserProfile() {
   if (loading || authLoading) {
     return (
       <View style={styles.loading}>
-        <Text>Loading profile...</Text>
+        <ActivityIndicator size="large" color="#ff9db2" />
+        <Text style={{ color: "#555", marginTop: 12 }}>Loading profile...</Text>
       </View>
     );
   }
@@ -163,143 +148,229 @@ export default function UserProfile() {
   const selectedGoals = watch("hairGoals");
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Your Hair Profile</Text>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Your Hair Profile 💆‍♀️</Text>
+        <Text style={styles.subtitle}>
+          Let’s get to know your hair so we can build your perfect routine.
+        </Text>
 
-      {/* Hair Type */}
-      <Text style={styles.label}>Hair Type</Text>
-      <Controller
-        control={control}
-        name="hairType"
-        render={({ field: { value, onChange } }) => (
-          <View style={styles.optionContainer}>
-            {hairTypes.map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[styles.option, value === type && styles.optionSelected]}
-                onPress={() => onChange(type)}
-              >
-                <Text
-                  style={
-                    value === type
-                      ? styles.optionTextSelected
-                      : styles.optionText
-                  }
-                >
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      />
-      {errors.hairType && (
-        <Text style={styles.error}>{errors.hairType.message}</Text>
-      )}
-
-      {/* Hair Goals */}
-      <Text style={styles.label}>Hair Goals</Text>
-      <Controller
-        control={control}
-        name="hairGoals"
-        render={({ field: { value, onChange } }) => (
-          <View style={styles.optionContainer}>
-            {hairGoalsOptions.map((goal) => {
-              const selected = value?.includes(goal);
-              return (
+        {/* Hair Type */}
+        <Text style={styles.label}>Hair Type</Text>
+        <Controller
+          control={control}
+          name="hairType"
+          render={({ field: { value, onChange } }) => (
+            <View style={styles.optionContainer}>
+              {hairTypes.map((type) => (
                 <TouchableOpacity
-                  key={goal}
-                  style={[styles.option, selected && styles.optionSelected]}
-                  onPress={() => {
-                    if (selected)
-                      onChange(value?.filter((g: string) => g !== goal));
-                    else onChange([...(value || []), goal]);
-                  }}
+                  key={type}
+                  style={[
+                    styles.option,
+                    value === type && styles.optionSelected,
+                  ]}
+                  onPress={() => onChange(type)}
                 >
                   <Text
                     style={
-                      selected ? styles.optionTextSelected : styles.optionText
+                      value === type
+                        ? styles.optionTextSelected
+                        : styles.optionText
                     }
                   >
-                    {goal}
+                    {type}
                   </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
+              ))}
+            </View>
+          )}
+        />
+        {errors.hairType && (
+          <Text style={styles.error}>{errors.hairType.message}</Text>
         )}
-      />
-      {errors.hairGoals && (
-        <Text style={styles.error}>{errors.hairGoals.message}</Text>
-      )}
 
-      {/* Wash Frequency */}
-      <Text style={styles.label}>Wash Frequency</Text>
-      <Controller
-        control={control}
-        name="washFrequency"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            style={styles.input}
-            placeholder="e.g., 3x/week"
-            value={value}
-            onChangeText={onChange}
-          />
+        {/* Hair Goals */}
+        <Text style={styles.label}>Hair Goals</Text>
+        <Controller
+          control={control}
+          name="hairGoals"
+          render={({ field: { value, onChange } }) => (
+            <View style={styles.optionContainer}>
+              {hairGoalsOptions.map((goal) => {
+                const selected = value?.includes(goal);
+                return (
+                  <TouchableOpacity
+                    key={goal}
+                    style={[
+                      styles.option,
+                      selected && styles.optionSelected,
+                    ]}
+                    onPress={() => {
+                      if (selected)
+                        onChange(value?.filter((g: string) => g !== goal));
+                      else onChange([...(value || []), goal]);
+                    }}
+                  >
+                    <Text
+                      style={
+                        selected
+                          ? styles.optionTextSelected
+                          : styles.optionText
+                      }
+                    >
+                      {goal}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        />
+        {errors.hairGoals && (
+          <Text style={styles.error}>{errors.hairGoals.message}</Text>
         )}
-      />
-      {errors.washFrequency && (
-        <Text style={styles.error}>{errors.washFrequency.message}</Text>
-      )}
 
-      {/* Products */}
-      <Text style={styles.label}>Current Products (comma separated)</Text>
-      <Controller
-        control={control}
-        name="products"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            style={styles.input}
-            placeholder="Shampoo X, Conditioner Y"
-            value={value}
-            onChangeText={onChange}
-          />
+        {/* Wash Frequency */}
+        <Text style={styles.label}>Wash Frequency</Text>
+        <Controller
+          control={control}
+          name="washFrequency"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., 3x/week"
+              value={value}
+              onChangeText={onChange}
+              placeholderTextColor="#aaa"
+            />
+          )}
+        />
+        {errors.washFrequency && (
+          <Text style={styles.error}>{errors.washFrequency.message}</Text>
         )}
-      />
 
-      <Button
-        title={
-          submitting ? "Generating AI Hair Plan..." : "Save Profile & Generate Plan"
-        }
-        onPress={handleSubmit(onSubmit)}
-        disabled={submitting}
-      />
-    </ScrollView>
+        {/* Products */}
+        <Text style={styles.label}>Current Products</Text>
+        <Controller
+          control={control}
+          name="products"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              style={styles.input}
+              placeholder="Shampoo X, Conditioner Y"
+              value={value}
+              onChangeText={onChange}
+              placeholderTextColor="#aaa"
+            />
+          )}
+        />
+
+        {/* Submit */}
+        <TouchableOpacity
+          onPress={handleSubmit(onSubmit)}
+          disabled={submitting}
+          activeOpacity={0.9}
+        >
+          <LinearGradient
+            colors={["#ff9db2", "#ff6f91"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.button, submitting && { opacity: 0.6 }]}
+          >
+            <Text style={styles.buttonText}>
+              {submitting ? "Generating Plan..." : "Save & Generate Plan"}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
+// ------------------ Styles ------------------
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: "#fff", flexGrow: 1 },
-  loading: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 24, fontWeight: "700", marginBottom: 16, textAlign: "center" },
-  label: { fontSize: 16, fontWeight: "600", marginTop: 12 },
+  safe: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  container: {
+    padding: 20,
+    paddingBottom: 60,
+    backgroundColor: "#fff",
+  },
+  loading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 8,
+    color: "#222",
+  },
+  subtitle: {
+    textAlign: "center",
+    color: "#666",
+    fontSize: 15,
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 16,
+    color: "#222",
+  },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    borderColor: "#ddd",
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 8,
+    fontSize: 15,
+    color: "#333",
   },
-  optionContainer: { flexDirection: "row", flexWrap: "wrap", marginVertical: 8 },
+  optionContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 8,
+  },
   option: {
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: "#ddd",
     borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     margin: 4,
+    backgroundColor: "#f9f9f9",
   },
-  optionSelected: { backgroundColor: "#ff9db2", borderColor: "#ff9db2" },
-  optionText: { color: "#000" },
-  optionTextSelected: { color: "#fff", fontWeight: "700" },
-  error: { color: "red", marginBottom: 6 },
+  optionSelected: {
+    backgroundColor: "#ff9db2",
+    borderColor: "#ff9db2",
+  },
+  optionText: {
+    color: "#444",
+    fontSize: 14,
+  },
+  optionTextSelected: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  button: {
+    marginTop: 30,
+    borderRadius: 16,
+    paddingVertical: 14,
+  },
+  buttonText: {
+    color: "#fff",
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  error: {
+    color: "#ff6b6b",
+    fontSize: 13,
+    marginTop: 4,
+  },
 });

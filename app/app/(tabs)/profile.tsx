@@ -2,72 +2,39 @@ import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
-  TextInput,
-  Button,
   StyleSheet,
   ActivityIndicator,
+  TextInput,
   Alert,
-  TouchableOpacity,
-  FlatList,
+  ScrollView,
 } from "react-native";
-import { useForm, Controller } from "react-hook-form";
+import { Button } from "react-native-paper";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/services/firebase";
-import { logout } from "@/services/auth";
 import { useRouter } from "expo-router";
+import { logout } from "@/services/auth";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const user = auth.currentUser;
   const [loading, setLoading] = useState(true);
-  const [initialData, setInitialData] = useState<any>(null);
-  const [productInput, setProductInput] = useState("");
-
-  const { control, handleSubmit, reset, setValue, watch } = useForm({
-    defaultValues: {
-      email: user?.email || "",
-      hairType: "",
-      goals: "",
-      routine: "",
-      products: [] as string[],
-    },
-  });
-
-  const products: string[] = watch("products") || [];
+  const [saving, setSaving] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const loadProfile = async () => {
       if (!user) return;
       try {
-        const docRef = doc(db, "users", user.uid);
-        const snap = await getDoc(docRef);
+        const ref = doc(db, "users", user.uid);
+        const snap = await getDoc(ref);
         if (snap.exists()) {
-          const data = snap.data();
-          const productsFromDb =
-            data.products && Array.isArray(data.products)
-              ? data.products
-              : typeof data.products === "string"
-              ? data.products.split(",").map((s: string) => s.trim()).filter(Boolean)
-              : [];
-
-          const resetObj = {
-            email: data.email || user.email || "",
-            hairType: data.hairType || "",
-            goals: Array.isArray(data.goals) ? data.goals.join(", ") : data.goals || "",
-            routine: data.currentRoutine?.routine || data.routine || "",
-            products: productsFromDb,
-          };
-
-          setInitialData(data);
-          reset(resetObj);
-          setValue("products", productsFromDb);
+          setProfile(snap.data());
         } else {
-          reset({
-            email: user.email || "",
+          setProfile({
+            email: user.email,
             hairType: "",
-            goals: "",
-            routine: "",
-            products: [],
+            hairGoals: [],
+            washFrequency: "",
           });
         }
       } catch (err: any) {
@@ -76,45 +43,38 @@ export default function ProfileScreen() {
         setLoading(false);
       }
     };
-    fetchProfile();
-  }, [user, reset, setValue]);
 
-  const onAddProduct = () => {
-    const value = productInput.trim();
-    if (!value) return;
-    if (products.includes(value)) {
-      setProductInput("");
-      return;
-    }
-    const next = [...products, value];
-    setValue("products", next);
-    setProductInput("");
-  };
+    loadProfile();
+  }, [user]);
 
-  const onRemoveProduct = (p: string) => {
-    const next = products.filter((x) => x !== p);
-    setValue("products", next);
-  };
-
-  const onSubmit = async (data: any) => {
+  const handleSave = async () => {
+    if (!user) return;
+    setSaving(true);
     try {
-      if (!user) throw new Error("Not authenticated");
-      const payload: any = {
-        email: data.email || user.email,
-        hairType: data.hairType || "",
-        goals: data.goals ? data.goals.split(",").map((s: string) => s.trim()).filter(Boolean) : [],
+      const ref = doc(db, "users", user.uid);
+      await updateDoc(ref, {
+        hairType: profile.hairType || "",
+        hairGoals: Array.isArray(profile.hairGoals)
+          ? profile.hairGoals
+          : profile.hairGoals
+              .split(",")
+              .map((g: string) => g.trim())
+              .filter(Boolean),
         currentRoutine: {
-          routine: data.routine || "",
+          washFrequency: profile.washFrequency || "",
         },
-        products: Array.isArray(data.products) ? data.products : (data.products || "").split(",").map((s: string) => s.trim()).filter(Boolean),
         updatedAt: new Date(),
-      };
-
-      await updateDoc(doc(db, "users", user.uid), payload);
-      Alert.alert("Success", "Profile updated!");
+      });
+      Alert.alert("Saved", "Your preferences have been updated!");
     } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to save profile");
+      Alert.alert("Error", err.message || "Couldn't update your profile");
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleGenerateAI = () => {
+    router.push("../profile/setup"); 
   };
 
   const handleLogout = async () => {
@@ -131,133 +91,159 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>My Profile</Text>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+      <Text style={styles.title}>Your Hair Profile</Text>
 
-      <Controller
-        control={control}
-        name="email"
-        render={({ field: { value } }) => (
-          <TextInput style={[styles.input, styles.disabled]} value={value} editable={false} />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="hairType"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            style={styles.input}
-            placeholder="Hair Type (e.g. Curly, Straight)"
-            value={value}
-            onChangeText={onChange}
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="goals"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            style={styles.input}
-            placeholder="Goals (comma separated: Growth, Shine)"
-            value={value}
-            onChangeText={onChange}
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="routine"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            style={[styles.input, { height: 100 }]}
-            placeholder="Your current hair routine..."
-            value={value}
-            onChangeText={onChange}
-            multiline
-          />
-        )}
-      />
-
-      <Text style={styles.label}>Products you use</Text>
-      <View style={styles.row}>
-        <TextInput
-          style={[styles.input, { flex: 1 }]}
-          placeholder="e.g. Olaplex No.3"
-          value={productInput}
-          onChangeText={setProductInput}
-        />
-        <View style={{ width: 12 }} />
-        <Button title="Add" onPress={onAddProduct} />
+      <View style={styles.section}>
+        <Text style={styles.label}>Email</Text>
+        <TextInput style={[styles.input, styles.disabled]} value={profile?.email} editable={false} />
       </View>
 
-      <FlatList
-        data={products}
-        keyExtractor={(item) => item}
-        horizontal={false}
-        numColumns={3}
-        contentContainerStyle={{ paddingTop: 8 }}
-        renderItem={({ item }) => (
-          <View style={styles.chipContainer}>
-            <Text style={styles.chipText}>{item}</Text>
-            <TouchableOpacity style={styles.chipRemove} onPress={() => onRemoveProduct(item)}>
-              <Text style={styles.chipRemoveText}>×</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      />
+      <View style={styles.section}>
+        <Text style={styles.label}>Hair Type</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. Curly, Wavy, Straight"
+          value={profile?.hairType || ""}
+          onChangeText={(t) => setProfile({ ...profile, hairType: t })}
+        />
+      </View>
 
-      <View style={{ height: 12 }} />
-      <Button title="Save Changes" onPress={handleSubmit(onSubmit)} />
-      <View style={{ height: 8 }} />
-      <Button title="Logout" color="red" onPress={handleLogout} />
-    </View>
+      <View style={styles.section}>
+        <Text style={styles.label}>Hair Goals</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. Growth, Frizz control"
+          value={
+            Array.isArray(profile?.hairGoals)
+              ? profile.hairGoals.join(", ")
+              : profile?.hairGoals || ""
+          }
+          onChangeText={(t) => setProfile({ ...profile, hairGoals: t })}
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.label}>Wash Frequency</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 2-3 times a week"
+          value={profile?.washFrequency || ""}
+          onChangeText={(t) => setProfile({ ...profile, washFrequency: t })}
+        />
+      </View>
+
+      <Button
+        mode="contained"
+        onPress={handleSave}
+        loading={saving}
+        style={styles.saveButton}
+        labelStyle={{ fontWeight: "600" }}
+      >
+        Save Preferences
+      </Button>
+
+      <View style={styles.divider} />
+
+      <View style={styles.aiSection}>
+        <Text style={styles.aiTitle}>✨ Your Routine</Text>
+        {profile?.hasPlan ? (
+          <>
+            <Text style={styles.aiText}>
+              Your personalized plan is active and synced with your hair goals.
+            </Text>
+            <Button
+              mode="outlined"
+              onPress={() => router.push("/routine")}
+              textColor="#ff9db2"
+              style={styles.outlinedButton}
+            >
+              View Routine
+            </Button>
+          </>
+        ) : (
+          <>
+            <Text style={styles.aiText}>
+              You haven’t generated your AI plan yet. Let’s build one that adapts to your hair type
+              and lifestyle.
+            </Text>
+            <Button
+              mode="contained"
+              onPress={handleGenerateAI}
+              style={styles.aiButton}
+              labelStyle={{ fontWeight: "600" }}
+            >
+              Generate My AI Routine →
+            </Button>
+          </>
+        )}
+      </View>
+
+      <View style={styles.divider} />
+
+      <Button
+        mode="outlined"
+        textColor="red"
+        onPress={handleLogout}
+        style={styles.logoutButton}
+      >
+        Logout
+      </Button>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  title: { fontSize: 24, fontWeight: "700", marginBottom: 12, textAlign: "center" },
-  label: { fontSize: 14, fontWeight: "600", marginTop: 12, marginBottom: 6 },
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  title: { fontSize: 26, fontWeight: "700", marginBottom: 20, textAlign: "center" },
+  section: { marginBottom: 16 },
+  label: { fontSize: 14, fontWeight: "600", color: "#444", marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
+    borderColor: "#ddd",
+    borderRadius: 10,
     padding: 12,
-    marginBottom: 8,
+    backgroundColor: "#fafafa",
   },
-  disabled: {
-    backgroundColor: "#f2f2f2",
-  },
-  chipContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f6f6f6",
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    margin: 6,
-  },
-  chipText: {
-    fontSize: 13,
-    marginRight: 8,
-  },
-  chipRemove: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
+  disabled: { backgroundColor: "#f0f0f0", color: "#999" },
+  saveButton: {
     backgroundColor: "#ff9db2",
+    borderRadius: 12,
+    paddingVertical: 6,
+    marginTop: 4,
   },
-  chipRemoveText: {
-    color: "#fff",
-    fontWeight: "700",
-    lineHeight: 18,
+  divider: { height: 1, backgroundColor: "#eee", marginVertical: 20 },
+  aiSection: { alignItems: "center" },
+  aiTitle: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
+  aiText: {
+    fontSize: 15,
+    color: "#666",
+    textAlign: "center",
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
-  row: { flexDirection: "row", alignItems: "center" },
+  aiButton: {
+    backgroundColor: "#ff9db2",
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  outlinedButton: {
+    borderColor: "#ff9db2",
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+  },
+  logoutButton: {
+    borderColor: "#ff9db2",
+    borderWidth: 1,
+    marginBottom: 40,
+  },
 });
