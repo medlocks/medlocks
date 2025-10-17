@@ -3,25 +3,43 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   Image,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   Dimensions,
+  ScrollView,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { auth, db } from "@/services/firebase";
-import { collection, addDoc, getDocs, query, orderBy } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  where,
+} from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
+// Enable LayoutAnimation for Android
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 const { width } = Dimensions.get("window");
 
 export default function ProgressScreen() {
-  const [images, setImages] = useState<{ id: string; url: string; date: string }[]>([]);
+  const [photos, setPhotos] = useState<
+    { id: string; url: string; date: string; weekLabel: string }[]
+  >([]);
   const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const storage = getStorage();
   const user = auth.currentUser;
 
@@ -33,16 +51,29 @@ export default function ProgressScreen() {
     if (!user) return;
     setLoading(true);
 
-    const q = query(collection(db, "users", user.uid, "progress"), orderBy("timestamp", "desc"));
+    const q = query(
+      collection(db, "users", user.uid, "progress"),
+      orderBy("timestamp", "desc")
+    );
     const snapshot = await getDocs(q);
 
-    const data = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      url: doc.data().url,
-      date: new Date(doc.data().timestamp?.seconds * 1000).toLocaleDateString(),
-    }));
+    const data = snapshot.docs.map((doc) => {
+      const ts = doc.data().timestamp?.seconds
+        ? new Date(doc.data().timestamp.seconds * 1000)
+        : new Date();
+      const weekLabel = `Week of ${ts.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+      })}`;
+      return {
+        id: doc.id,
+        url: doc.data().url,
+        date: ts.toLocaleDateString(),
+        weekLabel,
+      };
+    });
 
-    setImages(data);
+    setPhotos(data);
     setLoading(false);
   };
 
@@ -51,7 +82,23 @@ export default function ProgressScreen() {
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission required", "We need access to your photos to upload progress images.");
+      Alert.alert("Permission required", "We need access to your photos.");
+      return;
+    }
+
+    // Only one upload per week
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const weekQuery = query(
+      collection(db, "users", user.uid, "progress"),
+      where("timestamp", ">", oneWeekAgo)
+    );
+    const weekSnap = await getDocs(weekQuery);
+    if (!weekSnap.empty) {
+      Alert.alert(
+        "Hold up 💖",
+        "You’ve already uploaded a progress photo this week. Come back next week for your next update!"
+      );
       return;
     }
 
@@ -62,7 +109,6 @@ export default function ProgressScreen() {
     });
 
     if (result.canceled) return;
-
     setLoading(true);
 
     try {
@@ -84,51 +130,66 @@ export default function ProgressScreen() {
       console.error(error);
       Alert.alert("Upload failed", "Something went wrong while uploading.");
     }
-
     setLoading(false);
   };
 
+  const toggleExpand = (id: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded(expanded === id ? null : id);
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Hair Progress</Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 80 }}
+    >
+      <Text style={styles.title}>Weekly Hair Progress</Text>
+      <Text style={styles.subtitle}>
+        Upload a new photo each week to see your transformation unfold 💕
+      </Text>
 
       <TouchableOpacity style={styles.uploadButton} onPress={uploadImage}>
-        <LinearGradient
-          colors={["#ff9db2", "#ffb6c5"]}
-          style={styles.uploadGradient}
-        >
+        <LinearGradient colors={["#ff9db2", "#ffb6c5"]} style={styles.uploadGradient}>
           <Ionicons name="camera-outline" size={20} color="#fff" />
-          <Text style={styles.uploadText}>Upload New Photo</Text>
+          <Text style={styles.uploadText}>Upload This Week’s Photo</Text>
         </LinearGradient>
       </TouchableOpacity>
 
       {loading ? (
         <ActivityIndicator size="large" color="#ff9db2" style={{ marginTop: 40 }} />
-      ) : images.length === 0 ? (
+      ) : photos.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="image-outline" size={60} color="#ccc" />
           <Text style={styles.emptyTitle}>No progress photos yet</Text>
           <Text style={styles.emptySubtitle}>
-            Start tracking your hair journey today — upload your first photo!
+            Start your journey by uploading your first weekly photo!
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={images}
-          numColumns={2}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.gallery}
-          renderItem={({ item }) => (
-            <View style={styles.imageCard}>
-              <Image source={{ uri: item.url }} style={styles.image} />
-              <View style={styles.overlay}>
-                <Text style={styles.date}>{item.date}</Text>
+        photos.map((photo, index) => (
+          <View key={photo.id} style={styles.weekCard}>
+            <TouchableOpacity
+              style={styles.weekHeader}
+              onPress={() => toggleExpand(photo.id)}
+            >
+              <Text style={styles.weekTitle}>{photo.weekLabel}</Text>
+              <Ionicons
+                name={expanded === photo.id ? "chevron-up" : "chevron-down"}
+                size={20}
+                color="#666"
+              />
+            </TouchableOpacity>
+
+            {expanded === photo.id && (
+              <View style={styles.photoContainer}>
+                <Image source={{ uri: photo.url }} style={styles.image} />
+                <Text style={styles.dateText}>📅 Taken on {photo.date}</Text>
               </View>
-            </View>
-          )}
-        />
+            )}
+          </View>
+        ))
       )}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -137,14 +198,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     paddingHorizontal: 20,
-    paddingTop: 60, // keeps clear of selfie cam / notch
+    paddingTop: 60, // clears selfie cam / notch
   },
   title: {
     fontSize: 26,
     fontWeight: "700",
     textAlign: "center",
     color: "#222",
-    marginBottom: 24,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 6,
+    marginBottom: 20,
+    paddingHorizontal: 16,
   },
   uploadButton: {
     alignSelf: "center",
@@ -169,38 +237,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 8,
   },
-  gallery: {
-    paddingBottom: 80,
-    justifyContent: "center",
-  },
-  imageCard: {
-    flex: 1,
-    margin: 8,
+  weekCard: {
+    backgroundColor: "#fafafa",
     borderRadius: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#eee",
     overflow: "hidden",
-    backgroundColor: "#f8f8f8",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 4 },
+  },
+  weekHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  weekTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+  },
+  photoContainer: {
+    alignItems: "center",
+    paddingBottom: 16,
   },
   image: {
-    width: (width - 60) / 2,
-    height: (width - 60) / 2,
-    borderRadius: 16,
+    width: width * 0.8,
+    height: width * 0.8,
+    borderRadius: 12,
+    marginBottom: 8,
   },
-  overlay: {
-    position: "absolute",
-    bottom: 0,
-    width: "100%",
-    backgroundColor: "rgba(0,0,0,0.35)",
-    paddingVertical: 4,
-    alignItems: "center",
-  },
-  date: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
+  dateText: {
+    fontSize: 14,
+    color: "#666",
   },
   emptyState: {
     alignItems: "center",
@@ -221,3 +290,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+
