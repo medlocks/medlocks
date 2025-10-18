@@ -3,44 +3,27 @@ import {
   View,
   Text,
   StyleSheet,
+  FlatList,
   Image,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   Dimensions,
-  ScrollView,
-  LayoutAnimation,
   Platform,
-  UIManager,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { auth, db } from "@/services/firebase";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  orderBy,
-  where,
-} from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-
-// Enable LayoutAnimation for Android
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { Ionicons } from "@expo/vector-icons";
+import { auth, db, storage } from "@/services/firebase";
+import { collection, addDoc, getDocs, orderBy, query } from "firebase/firestore";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 const { width } = Dimensions.get("window");
 
 export default function ProgressScreen() {
-  const [photos, setPhotos] = useState<
-    { id: string; url: string; date: string; weekLabel: string }[]
-  >([]);
+  const [images, setImages] = useState<{ id: string; url: string; date: string }[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const storage = getStorage();
   const user = auth.currentUser;
 
   useEffect(() => {
@@ -50,226 +33,221 @@ export default function ProgressScreen() {
   const loadImages = async () => {
     if (!user) return;
     setLoading(true);
-
-    const q = query(
-      collection(db, "users", user.uid, "progress"),
-      orderBy("timestamp", "desc")
-    );
-    const snapshot = await getDocs(q);
-
-    const data = snapshot.docs.map((doc) => {
-      const ts = doc.data().timestamp?.seconds
-        ? new Date(doc.data().timestamp.seconds * 1000)
-        : new Date();
-      const weekLabel = `Week of ${ts.toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-      })}`;
-      return {
+    try {
+      const q = query(
+        collection(db, "users", user.uid, "progress"),
+        orderBy("timestamp", "desc")
+      );
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map((doc) => ({
         id: doc.id,
         url: doc.data().url,
-        date: ts.toLocaleDateString(),
-        weekLabel,
-      };
-    });
-
-    setPhotos(data);
+        date: new Date(doc.data().timestamp?.seconds * 1000).toLocaleDateString(),
+      }));
+      setImages(data);
+    } catch (err) {
+      console.error("Error loading images:", err);
+    }
     setLoading(false);
   };
 
-  const uploadImage = async () => {
-    if (!user) return;
+  // ✅ Fetch-based conversion — this works in Expo Go
+  const uriToBlob = async (uri: string): Promise<Blob> => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    return blob;
+  };
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permission required", "We need access to your photos.");
-      return;
-    }
-
-    // Only one upload per week
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    const weekQuery = query(
-      collection(db, "users", user.uid, "progress"),
-      where("timestamp", ">", oneWeekAgo)
-    );
-    const weekSnap = await getDocs(weekQuery);
-    if (!weekSnap.empty) {
-      Alert.alert(
-        "Hold up 💖",
-        "You’ve already uploaded a progress photo this week. Come back next week for your next update!"
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    });
-
-    if (result.canceled) return;
-    setLoading(true);
-
+  const pickAndUpload = async (fromCamera: boolean = false) => {
     try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert("Not signed in", "Please log in to upload progress photos.");
+        return;
+      }
+
+      const permission = fromCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert("Permission denied", "We need permission to access your camera/photos.");
+        return;
+      }
+
+      const result = fromCamera
+        ? await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 0.8 });
+
+      if (result.canceled) return;
       const image = result.assets[0];
-      const response = await fetch(image.uri);
-      const blob = await response.blob();
+      console.log("Selected image:", image);
 
-      const fileRef = ref(storage, `users/${user.uid}/progress/${Date.now()}.jpg`);
-      await uploadBytes(fileRef, blob);
+      const fileUri = image.uri;
+      const blob = await uriToBlob(fileUri); // ✅ Reliable in Expo
 
-      const downloadURL = await getDownloadURL(fileRef);
-      await addDoc(collection(db, "users", user.uid, "progress"), {
-        url: downloadURL,
-        timestamp: new Date(),
+      const filePath = `users/${user.uid}/progress/${Date.now()}.jpg`;
+      const fileRef = ref(storage, filePath);
+
+      console.log("Uploading to:", filePath);
+      setLoading(true);
+
+      const metadata = { contentType: "image/jpeg" };
+      const uploadTask = uploadBytesResumable(fileRef, blob, metadata);
+
+      await new Promise((resolve, reject) => {
+        uploadTask.on(
+          "state_changed",
+          null,
+          reject,
+          async () => {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            await addDoc(collection(db, "users", user.uid, "progress"), {
+              url: downloadURL,
+              timestamp: new Date(),
+            });
+            resolve(true);
+          }
+        );
       });
 
+      Alert.alert("Success!", "Your progress photo was uploaded.");
       await loadImages();
     } catch (error) {
-      console.error(error);
-      Alert.alert("Upload failed", "Something went wrong while uploading.");
+      console.error("Upload error:", error);
+      Alert.alert("Upload failed", "Something went wrong while uploading your photo.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
-
-  const toggleExpand = (id: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded(expanded === id ? null : id);
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: 80 }}
-    >
-      <Text style={styles.title}>Weekly Hair Progress</Text>
-      <Text style={styles.subtitle}>
-        Upload a new photo each week to see your transformation unfold 💕
-      </Text>
+    <SafeAreaView style={styles.safeContainer}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Weekly Hair Progress</Text>
 
-      <TouchableOpacity style={styles.uploadButton} onPress={uploadImage}>
-        <LinearGradient colors={["#ff9db2", "#ffb6c5"]} style={styles.uploadGradient}>
-          <Ionicons name="camera-outline" size={20} color="#fff" />
-          <Text style={styles.uploadText}>Upload This Week’s Photo</Text>
-        </LinearGradient>
-      </TouchableOpacity>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity onPress={() => pickAndUpload(true)} style={styles.buttonWrapper}>
+            <LinearGradient colors={["#ff9db2", "#ffb6c5"]} style={styles.button}>
+              <Ionicons name="camera-outline" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Take Photo</Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#ff9db2" style={{ marginTop: 40 }} />
-      ) : photos.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="image-outline" size={60} color="#ccc" />
-          <Text style={styles.emptyTitle}>No progress photos yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Start your journey by uploading your first weekly photo!
-          </Text>
+          <TouchableOpacity onPress={() => pickAndUpload(false)} style={styles.buttonWrapper}>
+            <LinearGradient colors={["#ffb6c5", "#ffd3de"]} style={styles.button}>
+              <Ionicons name="image-outline" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Upload</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
-      ) : (
-        photos.map((photo, index) => (
-          <View key={photo.id} style={styles.weekCard}>
-            <TouchableOpacity
-              style={styles.weekHeader}
-              onPress={() => toggleExpand(photo.id)}
-            >
-              <Text style={styles.weekTitle}>{photo.weekLabel}</Text>
-              <Ionicons
-                name={expanded === photo.id ? "chevron-up" : "chevron-down"}
-                size={20}
-                color="#666"
-              />
-            </TouchableOpacity>
 
-            {expanded === photo.id && (
-              <View style={styles.photoContainer}>
-                <Image source={{ uri: photo.url }} style={styles.image} />
-                <Text style={styles.dateText}>📅 Taken on {photo.date}</Text>
+        {loading ? (
+          <ActivityIndicator size="large" color="#ff9db2" style={{ marginTop: 40 }} />
+        ) : images.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="image-outline" size={60} color="#ccc" />
+            <Text style={styles.emptyTitle}>No progress photos yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Start tracking your hair journey today — upload your first photo!
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={images}
+            numColumns={2}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.gallery}
+            renderItem={({ item }) => (
+              <View style={styles.imageCard}>
+                <Image source={{ uri: item.url }} style={styles.image} />
+                <View style={styles.overlay}>
+                  <Text style={styles.date}>{item.date}</Text>
+                </View>
               </View>
             )}
-          </View>
-        ))
-      )}
-    </ScrollView>
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeContainer: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  container: {
+    flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 60, // clears selfie cam / notch
   },
   title: {
     fontSize: 26,
     fontWeight: "700",
     textAlign: "center",
     color: "#222",
+    marginVertical: 24,
   },
-  subtitle: {
-    fontSize: 15,
-    color: "#666",
-    textAlign: "center",
-    marginTop: 6,
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "center",
     marginBottom: 20,
-    paddingHorizontal: 16,
   },
-  uploadButton: {
-    alignSelf: "center",
-    width: "80%",
+  buttonWrapper: {
+    marginHorizontal: 6,
     borderRadius: 14,
-    marginBottom: 24,
     shadowColor: "#ff9db2",
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
   },
-  uploadGradient: {
+  button: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
     borderRadius: 14,
   },
-  uploadText: {
+  buttonText: {
     color: "#fff",
     fontWeight: "700",
-    fontSize: 16,
-    marginLeft: 8,
+    fontSize: 15,
+    marginLeft: 6,
   },
-  weekCard: {
-    backgroundColor: "#fafafa",
+  gallery: {
+    paddingBottom: 100,
+    justifyContent: "center",
+  },
+  imageCard: {
+    flex: 1,
+    margin: 8,
     borderRadius: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: "#eee",
     overflow: "hidden",
-  },
-  weekHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  weekTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-  },
-  photoContainer: {
-    alignItems: "center",
-    paddingBottom: 16,
+    backgroundColor: "#f8f8f8",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
   },
   image: {
-    width: width * 0.8,
-    height: width * 0.8,
-    borderRadius: 12,
-    marginBottom: 8,
+    width: (width - 60) / 2,
+    height: (width - 60) / 2,
+    borderRadius: 16,
   },
-  dateText: {
-    fontSize: 14,
-    color: "#666",
+  overlay: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    backgroundColor: "rgba(0,0,0,0.35)",
+    paddingVertical: 4,
+    alignItems: "center",
+  },
+  date: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
   },
   emptyState: {
     alignItems: "center",
