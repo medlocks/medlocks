@@ -1,16 +1,11 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-  SafeAreaView,
-} from "react-native";
+import { View, Text, FlatList, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { auth, db } from "@/services/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { Button } from "react-native-paper";
+import theme from "@/theme";
+import AppContainer from "../../components/AppContainer";
 
 interface Task {
   action: string;
@@ -51,16 +46,16 @@ export default function HomeScreen() {
 
       setHasPlan(true);
 
-      // --- Determine today's tasks ---
+      // Determine today's tasks
       const today = new Date();
       const todayName = today.toLocaleDateString("en-US", { weekday: "long" });
 
-      // Determine current week (capped at 4 weeks)
       const startDate = data.startDate ? new Date(data.startDate) : today;
-      const diffDays = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor(
+        (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
       const currentWeek = Math.min(Math.floor(diffDays / 7) + 1, 4);
 
-      // Filter only today's tasks from the *current week*
       const todayMatches = routine.filter(
         (r: any) =>
           r.day === todayName &&
@@ -74,59 +69,129 @@ export default function HomeScreen() {
     fetchPlan();
   }, []);
 
+  // --- Loading State ---
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#ff9db2" />
+      <AppContainer>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
-      </SafeAreaView>
+      </AppContainer>
     );
   }
 
-  // --- If user has NOT generated their plan yet ---
+  // --- If user has NO plan yet ---
   if (!hasPlan) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Medlocks Hair Coach</Text>
-          <Text style={styles.subtitle}>
+      <AppContainer>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Text
+            style={{
+              fontSize: theme.fontSizes.xl,
+              fontWeight: "800",
+              color: theme.colors.text,
+              textAlign: "center",
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            Medlocks Hair Coach
+          </Text>
+          <Text
+            style={{
+              fontSize: theme.fontSizes.md,
+              color: theme.colors.textLight,
+              textAlign: "center",
+              marginBottom: theme.spacing.lg,
+              maxWidth: 280,
+            }}
+          >
             Your journey to healthy, dreamy hair starts here.
           </Text>
 
           <Button
             mode="contained"
             onPress={() => router.push("/profile")}
-            style={styles.button}
-            labelStyle={{ fontWeight: "600", fontSize: 16 }}
+            style={{
+              backgroundColor: theme.colors.primary,
+              borderRadius: theme.radius.lg,
+              paddingVertical: 8,
+              paddingHorizontal: 24,
+            }}
+            labelStyle={{
+              fontWeight: "600",
+              fontSize: theme.fontSizes.md,
+              color: "#fff",
+            }}
           >
             Get Started →
           </Button>
         </View>
-      </SafeAreaView>
+      </AppContainer>
     );
   }
 
   // --- If user HAS a plan ---
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Welcome Back 💖</Text>
-        <Text style={styles.subtitle}>
+    <AppContainer>
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontSize: theme.fontSizes.xl,
+            fontWeight: "800",
+            color: theme.colors.text,
+            marginBottom: theme.spacing.xs,
+          }}
+        >
+          Welcome Back 💖
+        </Text>
+        <Text
+          style={{
+            fontSize: theme.fontSizes.md,
+            color: theme.colors.textLight,
+            marginBottom: theme.spacing.lg,
+          }}
+        >
           Here’s what’s on your hair care list for today:
         </Text>
 
         {todayTasks.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>🎀 No tasks for today</Text>
-            <Text style={styles.emptySubText}>
+          <View
+            style={{
+              alignItems: "center",
+              justifyContent: "center",
+              marginTop: theme.spacing.lg,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: theme.fontSizes.lg,
+                fontWeight: "700",
+                color: theme.colors.text,
+                marginBottom: theme.spacing.xs,
+              }}
+            >
+              🎀 No tasks for today
+            </Text>
+            <Text
+              style={{
+                fontSize: theme.fontSizes.sm,
+                color: theme.colors.textLight,
+                textAlign: "center",
+                marginBottom: theme.spacing.md,
+              }}
+            >
               Check your routine calendar to see what’s next.
             </Text>
             <Button
               mode="outlined"
               onPress={() => router.push("/routine")}
-              textColor="#ff9db2"
-              style={styles.outlinedButton}
+              textColor={theme.colors.primary}
+              style={{
+                borderColor: theme.colors.primary,
+                borderWidth: 1.5,
+                borderRadius: theme.radius.md,
+                paddingHorizontal: theme.spacing.lg,
+              }}
             >
               View Full Plan
             </Button>
@@ -136,95 +201,50 @@ export default function HomeScreen() {
             data={todayTasks}
             keyExtractor={(item, idx) => `${idx}-${item.action}`}
             renderItem={({ item }) => (
-              <View style={styles.taskCard}>
-                <Text style={styles.taskAction}>{item.action}</Text>
-                <Text style={styles.taskDetails}>{item.details}</Text>
-                {item.time && <Text style={styles.taskTime}>⏰ {item.time}</Text>}
+              <View
+                style={{
+                  backgroundColor: theme.colors.surface,
+                  borderRadius: theme.radius.lg,
+                  padding: theme.spacing.lg,
+                  marginBottom: theme.spacing.md,
+                  ...theme.shadow.card,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: theme.fontSizes.md,
+                    fontWeight: "700",
+                    color: theme.colors.text,
+                  }}
+                >
+                  {item.action}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: theme.fontSizes.sm,
+                    color: theme.colors.textLight,
+                    marginTop: 4,
+                  }}
+                >
+                  {item.details}
+                </Text>
+                {item.time && (
+                  <Text
+                    style={{
+                      fontSize: theme.fontSizes.sm,
+                      color: theme.colors.textLight,
+                      marginTop: 6,
+                    }}
+                  >
+                    ⏰ {item.time}
+                  </Text>
+                )}
               </View>
             )}
             contentContainerStyle={{ paddingBottom: 40 }}
           />
         )}
       </View>
-    </SafeAreaView>
+    </AppContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  container: {
-    flex: 1,
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 20,
-  },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    textAlign: "center",
-    color: "#222",
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 25,
-    paddingHorizontal: 20,
-  },
-  button: {
-    backgroundColor: "#ff9db2",
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  outlinedButton: {
-    borderColor: "#ff9db2",
-    borderWidth: 1.5,
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-  taskCard: {
-    width: "100%",
-    backgroundColor: "#fafafa",
-    borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  taskAction: { fontSize: 16, fontWeight: "700", color: "#333" },
-  taskDetails: { fontSize: 14, color: "#666", marginTop: 4 },
-  taskTime: { fontSize: 13, color: "#999", marginTop: 8 },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#555",
-    marginBottom: 8,
-  },
-  emptySubText: {
-    fontSize: 15,
-    color: "#888",
-    textAlign: "center",
-    paddingHorizontal: 10,
-  },
-});

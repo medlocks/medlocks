@@ -12,6 +12,7 @@ import { auth, db } from "@/services/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { Button } from "react-native-paper";
 import { useRouter } from "expo-router";
+import theme from "@/theme";
 
 interface Task {
   action: string;
@@ -80,17 +81,17 @@ export default function RoutineScreen() {
   if (loading)
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#ff9db2" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
 
   const markedDates = Object.keys(tasksByDate).reduce(
     (acc, date) => {
-      acc[date] = { marked: true, dotColor: "#ff9db2" };
+      acc[date] = { marked: true, dotColor: theme.colors.primary };
       return acc;
     },
     {
-      [selectedDate]: { selected: true, selectedColor: "#ff9db2" },
+      [selectedDate]: { selected: true, selectedColor: theme.colors.primary },
     } as Record<string, any>
   );
 
@@ -105,10 +106,10 @@ export default function RoutineScreen() {
           onDayPress={(day: DateData) => setSelectedDate(day.dateString)}
           markedDates={markedDates}
           theme={{
-            selectedDayBackgroundColor: "#ff9db2",
-            todayTextColor: "#ff9db2",
-            arrowColor: "#ff9db2",
-            monthTextColor: "#222",
+            selectedDayBackgroundColor: theme.colors.primary,
+            todayTextColor: theme.colors.primary,
+            arrowColor: theme.colors.primary,
+            monthTextColor: theme.colors.text,
             textDayFontWeight: "500",
             textMonthFontWeight: "700",
             textDayHeaderFontWeight: "600",
@@ -118,23 +119,26 @@ export default function RoutineScreen() {
 
         {Object.keys(tasksByDate).length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>😢 No tasks in your calendar yet!</Text>
+            <Text style={styles.emptyEmoji}>🗓️</Text>
+            <Text style={styles.emptyText}>No tasks in your calendar yet</Text>
             <Text style={styles.emptySubText}>
-              Generate your bespoke AI routine and start your healthy hair journey today.
+              Generate your bespoke AI routine to begin your healthy hair journey.
             </Text>
             <Button
               mode="contained"
               onPress={() => router.push("/profile")}
               style={styles.emptyButton}
+              labelStyle={{ fontWeight: "700", fontSize: theme.fontSizes.md }}
             >
               Generate Routine
             </Button>
           </View>
         ) : tasks.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>🎀 No tasks for today</Text>
+            <Text style={styles.emptyEmoji}>🎀</Text>
+            <Text style={styles.emptyText}>No tasks for today</Text>
             <Text style={styles.emptySubText}>
-              Check another day to see what’s next in your routine.
+              Check another day to see what’s next in your plan.
             </Text>
           </View>
         ) : (
@@ -144,13 +148,13 @@ export default function RoutineScreen() {
               data={tasks}
               keyExtractor={(item, idx) => `${idx}-${item.action}`}
               renderItem={({ item }) => (
-                <View style={styles.taskCard}>
+                <View style={[styles.taskCard, theme.shadow.card]}>
                   <Text style={styles.taskAction}>{item.action}</Text>
                   <Text style={styles.taskDetails}>{item.details}</Text>
                   <Text style={styles.taskTime}>⏰ {item.time}</Text>
                 </View>
               )}
-              contentContainerStyle={{ paddingBottom: 40 }}
+              contentContainerStyle={{ paddingBottom: theme.spacing.xl }}
             />
           </>
         )}
@@ -160,76 +164,91 @@ export default function RoutineScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
+  safe: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.spacing.lg,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: theme.fontSizes.xl,
+    fontWeight: "800",
     textAlign: "center",
-    marginVertical: 15,
-    color: "#222",
+    marginVertical: theme.spacing.md,
+    color: theme.colors.text,
   },
   calendar: {
-    borderRadius: 16,
-    elevation: 3,
-    backgroundColor: "#fff",
-    marginBottom: 15,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.surface,
+    marginBottom: theme.spacing.md,
+    ...theme.shadow.card,
   },
   dayTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#444",
-    marginBottom: 10,
+    fontSize: theme.fontSizes.lg,
+    fontWeight: "700",
+    color: theme.colors.text,
     textAlign: "center",
+    marginBottom: theme.spacing.sm,
   },
   taskCard: {
-    backgroundColor: "#fafafa",
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
   },
-  taskAction: { fontSize: 16, fontWeight: "700", color: "#333" },
-  taskDetails: { fontSize: 14, color: "#666", marginTop: 4 },
-  taskTime: { fontSize: 13, color: "#999", marginTop: 8 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  taskAction: {
+    fontSize: theme.fontSizes.md,
+    fontWeight: "700",
+    color: theme.colors.text,
+  },
+  taskDetails: {
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.textLight,
+    marginTop: theme.spacing.xs,
+  },
+  taskTime: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.textMuted,
+    marginTop: theme.spacing.xs,
+  },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 40,
-    paddingHorizontal: 20,
+    marginTop: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  emptyEmoji: {
+    fontSize: 50,
+    marginBottom: theme.spacing.sm,
   },
   emptyText: {
-    fontSize: 22,
+    fontSize: theme.fontSizes.lg,
     fontWeight: "700",
-    color: "#555",
-    marginBottom: 8,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
     textAlign: "center",
   },
   emptySubText: {
-    fontSize: 16,
-    color: "#888",
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.textLight,
     textAlign: "center",
-    marginBottom: 20,
-    paddingHorizontal: 10,
+    marginBottom: theme.spacing.lg,
   },
   emptyButton: {
-    backgroundColor: "#ff9db2",
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    ...theme.shadow.button,
   },
 });

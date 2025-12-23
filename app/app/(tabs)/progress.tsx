@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { auth, db, storage } from "@/services/firebase";
 import { collection, addDoc, getDocs, orderBy, query } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import theme from "@/theme";
 
 const { width } = Dimensions.get("window");
 
@@ -51,11 +51,9 @@ export default function ProgressScreen() {
     setLoading(false);
   };
 
-  // ✅ Fetch-based conversion — this works in Expo Go
   const uriToBlob = async (uri: string): Promise<Blob> => {
     const response = await fetch(uri);
-    const blob = await response.blob();
-    return blob;
+    return await response.blob();
   };
 
   const pickAndUpload = async (fromCamera: boolean = false) => {
@@ -81,19 +79,13 @@ export default function ProgressScreen() {
 
       if (result.canceled) return;
       const image = result.assets[0];
-      console.log("Selected image:", image);
-
-      const fileUri = image.uri;
-      const blob = await uriToBlob(fileUri); // ✅ Reliable in Expo
+      const blob = await uriToBlob(image.uri);
 
       const filePath = `users/${user.uid}/progress/${Date.now()}.jpg`;
       const fileRef = ref(storage, filePath);
 
-      console.log("Uploading to:", filePath);
       setLoading(true);
-
-      const metadata = { contentType: "image/jpeg" };
-      const uploadTask = uploadBytesResumable(fileRef, blob, metadata);
+      const uploadTask = uploadBytesResumable(fileRef, blob, { contentType: "image/jpeg" });
 
       await new Promise((resolve, reject) => {
         uploadTask.on(
@@ -127,26 +119,25 @@ export default function ProgressScreen() {
         <Text style={styles.title}>Weekly Hair Progress</Text>
 
         <View style={styles.buttonRow}>
-          <TouchableOpacity onPress={() => pickAndUpload(true)} style={styles.buttonWrapper}>
-            <LinearGradient colors={["#ff9db2", "#ffb6c5"]} style={styles.button}>
-              <Ionicons name="camera-outline" size={20} color="#fff" />
-              <Text style={styles.buttonText}>Take Photo</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => pickAndUpload(false)} style={styles.buttonWrapper}>
-            <LinearGradient colors={["#ffb6c5", "#ffd3de"]} style={styles.button}>
-              <Ionicons name="image-outline" size={20} color="#fff" />
-              <Text style={styles.buttonText}>Upload</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          <GradientButton
+            icon="camera-outline"
+            text="Take Photo"
+            colors={[theme.colors.primary, theme.colors.primaryLight]}
+            onPress={() => pickAndUpload(true)}
+          />
+          <GradientButton
+            icon="image-outline"
+            text="Upload"
+            colors={[theme.colors.primaryLight, theme.colors.accentLight]}
+            onPress={() => pickAndUpload(false)}
+          />
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#ff9db2" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
         ) : images.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="image-outline" size={60} color="#ccc" />
+            <Ionicons name="image-outline" size={60} color={theme.colors.border} />
             <Text style={styles.emptyTitle}>No progress photos yet</Text>
             <Text style={styles.emptySubtitle}>
               Start tracking your hair journey today — upload your first photo!
@@ -173,47 +164,67 @@ export default function ProgressScreen() {
   );
 }
 
+function GradientButton({
+  icon,
+  text,
+  colors,
+  onPress,
+}: {
+  icon: any;
+  text: string;
+  colors: string[];
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.buttonWrapper}>
+      <LinearGradient
+        colors={[theme.colors.primary, theme.colors.primaryLight] as [string, string]}
+        style={styles.button}>
+        <Ionicons name={icon} size={20} color="#fff" />
+        <Text style={styles.buttonText}>{text}</Text>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: theme.colors.background,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.spacing.lg,
   },
   title: {
-    fontSize: 26,
+    fontSize: theme.fontSizes.xl,
     fontWeight: "700",
     textAlign: "center",
-    color: "#222",
-    marginVertical: 24,
+    color: theme.colors.text,
+    marginVertical: theme.spacing.xl,
   },
   buttonRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: theme.spacing.lg,
   },
   buttonWrapper: {
-    marginHorizontal: 6,
-    borderRadius: 14,
-    shadowColor: "#ff9db2",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
+    marginHorizontal: 8,
+    borderRadius: theme.radius.lg,
+    ...theme.shadow.button,
   },
   button: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 14,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.radius.lg,
   },
   buttonText: {
     color: "#fff",
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: theme.fontSizes.md,
     marginLeft: 6,
   },
   gallery: {
@@ -222,19 +233,16 @@ const styles = StyleSheet.create({
   },
   imageCard: {
     flex: 1,
-    margin: 8,
-    borderRadius: 16,
+    margin: theme.spacing.sm,
+    borderRadius: theme.radius.lg,
     overflow: "hidden",
-    backgroundColor: "#f8f8f8",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 4 },
+    backgroundColor: theme.colors.surface,
+    ...theme.shadow.card,
   },
   image: {
     width: (width - 60) / 2,
     height: (width - 60) / 2,
-    borderRadius: 16,
+    borderRadius: theme.radius.lg,
   },
   overlay: {
     position: "absolute",
@@ -251,20 +259,20 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: "center",
-    marginTop: 60,
-    paddingHorizontal: 20,
+    marginTop: theme.spacing.xl * 2,
+    paddingHorizontal: theme.spacing.lg,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: theme.fontSizes.lg,
     fontWeight: "700",
-    color: "#444",
-    marginTop: 12,
+    color: theme.colors.text,
+    marginTop: theme.spacing.md,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: "#777",
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.textLight,
     textAlign: "center",
-    marginTop: 6,
+    marginTop: theme.spacing.xs,
     lineHeight: 20,
   },
 });

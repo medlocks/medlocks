@@ -3,7 +3,7 @@ import {
   View,
   Text,
   TextInput,
-  Button,
+  TouchableOpacity,
   StyleSheet,
   ImageBackground,
   ActivityIndicator,
@@ -15,6 +15,7 @@ import { login } from "@/services/auth";
 import { useRouter } from "expo-router";
 import { db } from "@/services/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import theme from "@/theme";
 
 const schema = yup.object().shape({
   email: yup.string().email("Invalid email").required("Email required"),
@@ -30,41 +31,34 @@ export default function LoginScreen() {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm({
-    resolver: yupResolver(schema),
-  });
+  } = useForm({ resolver: yupResolver(schema) });
+
   const [firebaseError, setFirebaseError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (data: any) => {
     setFirebaseError("");
     setLoading(true);
-
     try {
-      // 1️⃣ Login with Firebase Auth
       const userCred = await login(data.email, data.password);
       const uid = userCred.user.uid;
 
-      // 2️⃣ Fetch the user’s Firestore profile
       const userDocRef = doc(db, "users", uid);
       const userSnap = await getDoc(userDocRef);
-
-      // 3️⃣ Check if the profile exists and has required fields
       const profileData = userSnap.data();
+
       const profileComplete =
         profileData &&
         profileData.hairType &&
         profileData.hairGoals &&
         profileData.currentRoutine;
 
-      // 4️⃣ Route based on completeness
       if (profileComplete) {
         router.replace("/(tabs)");
       } else {
         router.replace("/profile/setup");
       }
     } catch (error: any) {
-      console.error(error);
       switch (error.code) {
         case "auth/user-not-found":
           setFirebaseError("No account found with this email");
@@ -89,55 +83,73 @@ export default function LoginScreen() {
       style={styles.container}
       resizeMode="cover"
     >
-      <View style={styles.inner}>
-        <Text style={styles.title}>Welcome Back</Text>
+      <View style={styles.overlay}>
+        <View style={styles.card}>
+          <Text style={styles.title}>Welcome Back 👋</Text>
+          <Text style={styles.subtitle}>
+            Sign in to continue your hair journey
+          </Text>
 
-        <Controller
-          control={control}
-          name="email"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              value={value}
-              onChangeText={onChange}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor={theme.colors.textMuted}
+                value={value}
+                onChangeText={onChange}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            )}
+          />
+          {errors.email && (
+            <Text style={styles.error}>{errors.email.message}</Text>
           )}
-        />
-        {errors.email && (
-          <Text style={styles.error}>{errors.email.message}</Text>
-        )}
 
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              secureTextEntry
-              value={value}
-              onChangeText={onChange}
-            />
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor={theme.colors.textMuted}
+                secureTextEntry
+                value={value}
+                onChangeText={onChange}
+              />
+            )}
+          />
+          {errors.password && (
+            <Text style={styles.error}>{errors.password.message}</Text>
           )}
-        />
-        {errors.password && (
-          <Text style={styles.error}>{errors.password.message}</Text>
-        )}
 
-        {firebaseError ? <Text style={styles.error}>{firebaseError}</Text> : null}
+          {firebaseError ? (
+            <Text style={styles.error}>{firebaseError}</Text>
+          ) : null}
 
-        {loading ? (
-          <ActivityIndicator size="large" color="#ff9db2" />
-        ) : (
-          <Button title="Login" onPress={handleSubmit(onSubmit)} />
-        )}
+          {loading ? (
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+          ) : (
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleSubmit(onSubmit)}
+            >
+              <Text style={styles.buttonText}>Login</Text>
+            </TouchableOpacity>
+          )}
 
-        <Text style={styles.link} onPress={() => router.push("/auth/signup")}>
-          Need an account? Sign up →
-        </Text>
+          <Text
+            style={styles.link}
+            onPress={() => router.push("/auth/signup")}
+          >
+            Need an account?{" "}
+            <Text style={styles.linkHighlight}>Sign up →</Text>
+          </Text>
+        </View>
       </View>
     </ImageBackground>
   );
@@ -148,32 +160,67 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
-  inner: {
+  overlay: {
     flex: 1,
+    backgroundColor: "rgba(255,255,255,0.9)",
     justifyContent: "center",
-    padding: 20,
+    paddingHorizontal: 20,
+  },
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    ...theme.shadow.card,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 16,
+    fontSize: theme.fontSizes.xl,
+    fontWeight: "800",
+    color: theme.colors.text,
     textAlign: "center",
+    marginBottom: theme.spacing.xs,
+  },
+  subtitle: {
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.textMuted,
+    textAlign: "center",
+    marginBottom: theme.spacing.lg,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 6,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     backgroundColor: "#fff",
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.text,
+  },
+  button: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.md,
+    marginTop: theme.spacing.md,
+    ...theme.shadow.button,
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: theme.fontSizes.md,
+    fontWeight: "700",
+    textAlign: "center",
   },
   error: {
-    color: "red",
-    marginBottom: 6,
+    color: theme.colors.error,
+    marginBottom: theme.spacing.xs,
+    textAlign: "center",
   },
   link: {
-    color: "#ff9db2",
     textAlign: "center",
-    marginTop: 16,
+    color: theme.colors.textMuted,
+    marginTop: theme.spacing.lg,
+    fontSize: theme.fontSizes.sm,
+  },
+  linkHighlight: {
+    color: theme.colors.primary,
+    fontWeight: "700",
   },
 });

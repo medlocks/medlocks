@@ -1,0 +1,195 @@
+[
+  {
+    "title": "The Science of Healthy Hair",
+    "order": 1,
+    "xpReward": 12,
+    "estimatedMinutes": 6,
+    "type": "lesson",
+    "content": "Overview: hair structure (cuticle, cortex, medulla), follicle & growth cycle. Why scalp health matters."
+  },
+  {
+    "title": "Understanding Hair Porosity",
+    "order": 2,
+    "xpReward": 10,
+    "estimatedMinutes": 5,
+    "type": "lesson",
+    "content": "Porosity determines moisture absorption. Low vs medium vs high porosity and product strategy for each."
+  },
+  {
+    "title": "Protein vs Moisture Balance",
+    "order": 3,
+    "xpReward": 12,
+    "estimatedMinutes": 6,
+    "type": "lesson",
+    "content": "Why both protein and moisture are needed, signs of imbalance, how to fix with treatments."
+  },
+  {
+    "title": "Wash Day 101",
+    "order": 4,
+    "xpReward": 8,
+    "estimatedMinutes": 5,
+    "type": "lesson",
+    "content": "How often to wash, shampoo vs co-wash, scalp-first wash tips and gentle cleansing techniques."
+  },
+  {
+    "title": "Detangling & Combing Without Breakage",
+    "order": 5,
+    "xpReward": 8,
+    "estimatedMinutes": 4,
+    "type": "lesson",
+    "content": "Best tools, sectioning, working from ends to roots and when to use slips/conditioning sprays."
+  },
+  {
+    "title": "Heat Styling Smartly",
+    "order": 6,
+    "xpReward": 10,
+    "estimatedMinutes": 5,
+    "type": "lesson",
+    "content": "How to protect hair from heat, heat limits, and correct order: protectant → dry → style."
+  },
+  {
+    "title": "Trimming: Frequency & Technique",
+    "order": 7,
+    "xpReward": 7,
+    "estimatedMinutes": 3,
+    "type": "lesson",
+    "content": "Why trims help growth appearance, how much to trim and long-term schedules."
+  },
+  {
+    "title": "Scalp Care & Circulation",
+    "order": 8,
+    "xpReward": 9,
+    "estimatedMinutes": 5,
+    "type": "lesson",
+    "content": "Scalp massage, exfoliation, oils and how scalp health drives hair quality."
+  },
+  {
+    "title": "Reading Product Labels",
+    "order": 9,
+    "xpReward": 12,
+    "estimatedMinutes": 7,
+    "type": "lesson",
+    "content": "Ingredients to seek and avoid, humectants vs silicones vs sulfates, and how to choose products."
+  },
+  {
+    "title": "Nutrition & Hair",
+    "order": 10,
+    "xpReward": 9,
+    "estimatedMinutes": 6,
+    "type": "lesson",
+    "content": "Key nutrients for hair (protein, iron, zinc, vitamins), hydration and why diet matters."
+  },
+  {
+    "title": "Game: Spot the Ingredient (Easy)",
+    "order": 11,
+    "xpReward": 7,
+    "estimatedMinutes": 4,
+    "type": "quiz",
+    "questions": [
+      {
+        "q": "Which ingredient is a protein that strengthens?",
+        "choices": ["Panthenol", "Keratin", "Glycerin", "Dimethicone"],
+        "answer": 1
+      },
+      {
+        "q": "Which helps retain moisture?",
+        "choices": ["Sulfate", "Silicone", "Humectant", "Alcohol"],
+        "answer": 2
+      }
+    ]
+  },
+  {
+    "title": "Game: Build a Routine (Challenge)",
+    "order": 12,
+    "xpReward": 18,
+    "estimatedMinutes": 8,
+    "type": "interactive",
+    "content": "Pick 4 weekly actions from a list to form a resilient routine. (This will evaluate your choices.)"
+  },
+  {
+    "title": "Damage Repair Pathways",
+    "order": 13,
+    "xpReward": 11,
+    "estimatedMinutes": 6,
+    "type": "lesson",
+    "content": "How to approach different damage (chemical/heat/mechanical) and staging treatments safely."
+  },
+  {
+    "title": "Protective Styling & Sleep Care",
+    "order": 14,
+    "xpReward": 8,
+    "estimatedMinutes": 4,
+    "type": "lesson",
+    "content": "Silk/scarf tips, low-tension updos, and night protocols that preserve length."
+  },
+  {
+    "title": "Game: Hair MythBusters",
+    "order": 15,
+    "xpReward": 9,
+    "estimatedMinutes": 5,
+    "type": "quiz",
+    "questions": [
+      {
+        "q": "Brushing 100 strokes makes hair grow faster. True or False?",
+        "choices": ["True","False"],
+        "answer": 1
+      },
+      {
+        "q": "Cutting hair frequently increases growth rate. True or False?",
+        "choices": ["True","False"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "title": "Advanced: Biologic Factors of Hair Growth",
+    "order": 16,
+    "xpReward": 14,
+    "estimatedMinutes": 10,
+    "type": "lesson",
+    "content": "Follicle miniaturization, androgen effects, lifecycle phases (anagen, catagen, telogen)."
+  },
+  {
+    "title": "Product Matching: Porosity Quiz",
+    "order": 17,
+    "xpReward": 10,
+    "estimatedMinutes": 6,
+    "type": "quiz",
+    "questions": [
+      {
+        "q": "If water beads on your hair, porosity is likely:",
+        "choices": ["Low","Medium","High"],
+        "answer": 0
+      },
+      {
+        "q": "If water soaks in quickly, porosity is likely:",
+        "choices": ["Low","Medium","High"],
+        "answer": 2
+      }
+    ]
+  },
+  {
+    "title": "Maintenance: When to Adjust Your Plan",
+    "order": 18,
+    "xpReward": 9,
+    "estimatedMinutes": 5,
+    "type": "lesson",
+    "content": "How to read progress and when to change frequency, ingredients, or add treatments."
+  },
+  {
+    "title": "Bonus: Quick SOS Treatments",
+    "order": 19,
+    "xpReward": 6,
+    "estimatedMinutes": 4,
+    "type": "lesson",
+    "content": "Fast fixes for dryness, frizz and split ends until the next treatment."
+  },
+  {
+    "title": "Challenge: 4-Week Streak (Unlockable)",
+    "order": 20,
+    "xpReward": 30,
+    "estimatedMinutes": 0,
+    "type": "challenge",
+    "content": "Follow your routine for 4 weeks and complete weekly check-ins to earn a massive XP bonus."
+  }
+]

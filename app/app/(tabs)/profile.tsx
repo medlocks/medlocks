@@ -13,6 +13,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/services/firebase";
 import { useRouter } from "expo-router";
 import { logout } from "@/services/auth";
+import theme from "@/theme";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -73,10 +74,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleGenerateAI = () => {
-    router.push("../profile/setup"); 
-  };
-
+  const handleGenerateAI = () => router.push("../profile/setup");
   const handleLogout = async () => {
     await logout();
     router.replace("/auth/login");
@@ -85,67 +83,58 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#ff9db2" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={styles.title}>Your Hair Profile</Text>
 
-      <View style={styles.section}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput style={[styles.input, styles.disabled]} value={profile?.email} editable={false} />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Hair Type</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Curly, Wavy, Straight"
-          value={profile?.hairType || ""}
-          onChangeText={(t) => setProfile({ ...profile, hairType: t })}
+      {/* Info section */}
+      <View style={styles.card}>
+        <ProfileField
+          label="Email"
+          value={profile?.email}
+          editable={false}
         />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Hair Goals</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Growth, Frizz control"
+        <ProfileField
+          label="Hair Type"
+          value={profile?.hairType}
+          placeholder="e.g. Curly, Wavy, Straight"
+          onChangeText={(t: any) => setProfile({ ...profile, hairType: t })}
+        />
+        <ProfileField
+          label="Hair Goals"
           value={
             Array.isArray(profile?.hairGoals)
               ? profile.hairGoals.join(", ")
               : profile?.hairGoals || ""
           }
-          onChangeText={(t) => setProfile({ ...profile, hairGoals: t })}
+          placeholder="e.g. Growth, Frizz Control"
+          onChangeText={(t: any) => setProfile({ ...profile, hairGoals: t })}
         />
+        <ProfileField
+          label="Wash Frequency"
+          value={profile?.washFrequency}
+          placeholder="e.g. 2–3 times a week"
+          onChangeText={(t: any) => setProfile({ ...profile, washFrequency: t })}
+        />
+
+        <Button
+          mode="contained"
+          onPress={handleSave}
+          loading={saving}
+          style={styles.saveButton}
+          labelStyle={styles.saveLabel}
+        >
+          Save Preferences
+        </Button>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.label}>Wash Frequency</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. 2-3 times a week"
-          value={profile?.washFrequency || ""}
-          onChangeText={(t) => setProfile({ ...profile, washFrequency: t })}
-        />
-      </View>
-
-      <Button
-        mode="contained"
-        onPress={handleSave}
-        loading={saving}
-        style={styles.saveButton}
-        labelStyle={{ fontWeight: "600" }}
-      >
-        Save Preferences
-      </Button>
-
-      <View style={styles.divider} />
-
-      <View style={styles.aiSection}>
+      {/* AI Section */}
+      <View style={[styles.card, styles.aiCard]}>
         <Text style={styles.aiTitle}>✨ Your Routine</Text>
         {profile?.hasPlan ? (
           <>
@@ -155,7 +144,7 @@ export default function ProfileScreen() {
             <Button
               mode="outlined"
               onPress={() => router.push("/routine")}
-              textColor="#ff9db2"
+              textColor={theme.colors.primary}
               style={styles.outlinedButton}
             >
               View Routine
@@ -171,7 +160,7 @@ export default function ProfileScreen() {
               mode="contained"
               onPress={handleGenerateAI}
               style={styles.aiButton}
-              labelStyle={{ fontWeight: "600" }}
+              labelStyle={styles.saveLabel}
             >
               Generate My AI Routine →
             </Button>
@@ -179,11 +168,10 @@ export default function ProfileScreen() {
         )}
       </View>
 
-      <View style={styles.divider} />
-
+      {/* Logout */}
       <Button
         mode="outlined"
-        textColor="red"
+        textColor={theme.colors.error}
         onPress={handleLogout}
         style={styles.logoutButton}
       >
@@ -193,57 +181,98 @@ export default function ProfileScreen() {
   );
 }
 
+function ProfileField({ label, value, onChangeText, editable = true, placeholder }: any) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput
+        style={[styles.input, !editable && styles.disabled]}
+        value={value}
+        editable={editable}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={theme.colors.textLight}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.xl,
   },
-  title: { fontSize: 26, fontWeight: "700", marginBottom: 20, textAlign: "center" },
-  section: { marginBottom: 16 },
-  label: { fontSize: 14, fontWeight: "600", color: "#444", marginBottom: 6 },
+  scrollContent: {
+    paddingBottom: 80,
+  },
+  title: {
+    fontSize: theme.fontSizes.xl,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: theme.spacing.xl,
+    color: theme.colors.text,
+  },
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
+    ...theme.shadow.card,
+  },
+  section: { marginBottom: theme.spacing.md },
+  label: {
+    fontSize: theme.fontSizes.sm,
+    fontWeight: "600",
+    color: theme.colors.text,
+    marginBottom: 6,
+  },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    padding: 12,
-    backgroundColor: "#fafafa",
+    borderColor: "#eee",
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.background,
+    color: theme.colors.text,
   },
   disabled: { backgroundColor: "#f0f0f0", color: "#999" },
   saveButton: {
-    backgroundColor: "#ff9db2",
-    borderRadius: 12,
-    paddingVertical: 6,
-    marginTop: 4,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    marginTop: theme.spacing.md,
   },
-  divider: { height: 1, backgroundColor: "#eee", marginVertical: 20 },
-  aiSection: { alignItems: "center" },
-  aiTitle: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
+  saveLabel: { fontWeight: "600", fontSize: 16 },
+  aiCard: { alignItems: "center" },
+  aiTitle: {
+    fontSize: theme.fontSizes.lg,
+    fontWeight: "700",
+    marginBottom: theme.spacing.sm,
+  },
   aiText: {
-    fontSize: 15,
-    color: "#666",
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.textLight,
     textAlign: "center",
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: theme.spacing.md,
   },
   aiButton: {
-    backgroundColor: "#ff9db2",
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.xl,
+    marginTop: theme.spacing.sm,
   },
   outlinedButton: {
-    borderColor: "#ff9db2",
+    borderColor: theme.colors.primary,
     borderWidth: 1.5,
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 6,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.xl,
+    marginTop: theme.spacing.sm,
   },
   logoutButton: {
-    borderColor: "#ff9db2",
+    borderColor: theme.colors.primary,
     borderWidth: 1,
-    marginBottom: 40,
+    borderRadius: theme.radius.md,
+    marginBottom: 80,
   },
 });

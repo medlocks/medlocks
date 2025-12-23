@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/services/firebase";
+import theme from "@/theme";
 
 interface Product {
   id: string;
@@ -51,7 +52,7 @@ export default function RecommendationsScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#ff9db2" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -61,7 +62,7 @@ export default function RecommendationsScreen() {
       <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: theme.spacing.xl * 2 }}
       >
         <Text style={styles.title}>Your Recommended Products</Text>
         <Text style={styles.subtitle}>
@@ -88,7 +89,7 @@ export default function RecommendationsScreen() {
             keyExtractor={(item) => item.id}
             scrollEnabled={false}
             renderItem={({ item }) => (
-              <View style={styles.card}>
+              <View style={[styles.card, theme.shadow.card]}>
                 <Text style={styles.productName}>{item.name}</Text>
                 <Text style={styles.description}>{item.description}</Text>
               </View>
@@ -103,95 +104,83 @@ export default function RecommendationsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: theme.colors.background,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 10,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
   },
   title: {
-    fontSize: 28,
+    fontSize: theme.fontSizes.xl,
     fontWeight: "800",
-    color: "#222",
+    color: theme.colors.text,
     textAlign: "center",
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.textLight,
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: theme.spacing.lg,
   },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
     borderWidth: 1,
-    borderColor: "#f3f3f3",
+    borderColor: theme.colors.border,
   },
   productName: {
-    fontSize: 18,
+    fontSize: theme.fontSizes.lg,
     fontWeight: "700",
-    color: "#222",
-    marginBottom: 8,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
   },
   description: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 14,
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.textLight,
     lineHeight: 20,
   },
-  button: {
-    backgroundColor: "#ff9db2",
-    paddingVertical: 12,
-    borderRadius: 12,
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  buttonText: {
-    color: "#fff",
-    textAlign: "center",
-    fontWeight: "600",
-    fontSize: 15,
-  },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyState: {
     alignItems: "center",
     marginTop: 80,
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.spacing.lg,
   },
   emptyEmoji: {
     fontSize: 50,
-    marginBottom: 10,
+    marginBottom: theme.spacing.sm,
   },
   emptyTitle: {
-    fontSize: 22,
+    fontSize: theme.fontSizes.lg,
     fontWeight: "700",
-    color: "#333",
-    marginBottom: 6,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
   },
   emptyText: {
-    fontSize: 16,
-    color: "#777",
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.textLight,
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: theme.spacing.lg,
     lineHeight: 22,
   },
   emptyButton: {
-    backgroundColor: "#ff9db2",
-    paddingVertical: 12,
-    paddingHorizontal: 26,
-    borderRadius: 14,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    borderRadius: theme.radius.md,
+    ...theme.shadow.button,
   },
   emptyButtonText: {
-    color: "#fff",
+    color: theme.colors.background,
     fontWeight: "700",
-    fontSize: 16,
+    fontSize: theme.fontSizes.md,
   },
 });
-
