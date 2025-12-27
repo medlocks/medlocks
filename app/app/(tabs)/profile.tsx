@@ -14,6 +14,7 @@ import { auth, db } from "@/services/firebase";
 import { useRouter } from "expo-router";
 import { logout } from "@/services/auth";
 import theme from "@/theme";
+import AppContainer from "@/components/AppContainer";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -89,6 +90,7 @@ export default function ProfileScreen() {
   }
 
   return (
+    <AppContainer>
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={styles.title}>Your Hair Profile</Text>
 
@@ -178,6 +180,7 @@ export default function ProfileScreen() {
         Logout
       </Button>
     </ScrollView>
+    </AppContainer>
   );
 }
 

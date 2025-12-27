@@ -59,19 +59,27 @@ export default function LoginScreen() {
         router.replace("/profile/setup");
       }
     } catch (error: any) {
-      switch (error.code) {
-        case "auth/user-not-found":
-          setFirebaseError("No account found with this email");
-          break;
-        case "auth/wrong-password":
-          setFirebaseError("Incorrect password");
-          break;
-        case "auth/invalid-email":
-          setFirebaseError("Invalid email address");
-          break;
-        default:
-          setFirebaseError("Login failed. Please try again.");
-      }
+      switch (error?.code) {
+  case "auth/invalid-credential":
+    setFirebaseError("Invalid email or password");
+    break;
+
+  case "auth/user-not-found":
+    setFirebaseError("No account found with this email");
+    break;
+
+  case "auth/wrong-password":
+    setFirebaseError("Incorrect password");
+    break;
+
+  case "auth/invalid-email":
+    setFirebaseError("Invalid email address");
+    break;
+
+  default:
+    setFirebaseError(error?.message ?? "Login failed. Please try again.");
+}
+
     } finally {
       setLoading(false);
     }

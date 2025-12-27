@@ -1,154 +1,149 @@
-// app/learn/[id].tsx
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { db } from "@/services/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import theme from "@/theme";
+import AppContainer from "@/components/AppContainer";
 
-export default function LessonDetail() {
+export default function QuizScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+
   const [lesson, setLesson] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // quiz state (always defined, but only used when type === "quiz")
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
-  const [quizCompleted, setQuizCompleted] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [showExplanation, setShowExplanation] = useState(false);
   const [score, setScore] = useState(0);
 
   useEffect(() => {
     if (!id) return;
-    const loadLesson = async () => {
-      try {
-        const docRef = doc(db, "lessons", id as string);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          console.log("Loaded lesson:", data);
-          setLesson({ id: snap.id, ...data });
-        }
-      } catch (e) {
-        console.error("Failed to load lesson", e);
-      } finally {
-        setLoading(false);
+    (async () => {
+      const snap = await getDoc(doc(db, "lessons", id as string));
+      if (snap.exists()) {
+        setLesson({ id: snap.id, ...snap.data() });
       }
-    };
-    loadLesson();
+      setLoading(false);
+    })();
   }, [id]);
 
-  const handleSelect = (qIndex: number, choiceIndex: number) => {
-    setSelectedAnswers(prev => ({ ...prev, [qIndex]: choiceIndex }));
-  };
-
-  const handleQuizComplete = () => {
-    if (!lesson?.questions) return;
-    let correct = 0;
-    lesson.questions.forEach((q: any, i: number) => {
-      if (selectedAnswers[i] === q.answer) correct++;
-    });
-    setScore(correct);
-    setQuizCompleted(true);
-  };
-
-  if (loading) {
+  if (loading || !lesson) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
-        <ActivityIndicator size="large" color="#ff9db2" />
-      </View>
+      <AppContainer>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </AppContainer>
     );
   }
 
-  if (!lesson) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text>Lesson not found.</Text>
-      </View>
-    );
-  }
+  const question = lesson.questions[currentIndex];
+  const isCorrect = selected === question.correctIndex;
+
+  const handleSelect = (index: number) => {
+    if (selected !== null) return;
+    setSelected(index);
+    if (index === question.correctIndex) setScore((s) => s + 1);
+    setShowExplanation(true);
+  };
+
+  const handleNext = () => {
+    setSelected(null);
+    setShowExplanation(false);
+
+    if (currentIndex + 1 < lesson.questions.length) {
+      setCurrentIndex((i) => i + 1);
+    } else {
+      router.replace("/learn"); // later: results screen
+    }
+  };
 
   return (
-    <ScrollView style={{ flex: 1, padding: 20, backgroundColor: "#fff" }}>
-      <Text style={{ fontSize: 22, fontWeight: "700", marginBottom: 10 }}>{lesson.title}</Text>
-      <Text style={{ color: "#666", marginBottom: 20 }}>
-        {lesson.estimatedMinutes ?? 5} min • {lesson.xpReward ?? 5} XP
+    <AppContainer>
+      <Text style={{ color: theme.colors.textLight, marginBottom: 6 }}>
+        Question {currentIndex + 1} of {lesson.questions.length}
       </Text>
 
-      {lesson.type === "lesson" && (
-        <>
-          <Text style={{ fontSize: 16, lineHeight: 22, color: "#333" }}>{lesson.content}</Text>
+      <Text
+        style={{
+          fontSize: theme.fontSizes.lg,
+          fontWeight: "700",
+          marginBottom: theme.spacing.lg,
+        }}
+      >
+        {question.question}
+      </Text>
+
+      {question.choices.map((choice: string, i: number) => {
+        const isSelected = selected === i;
+        const isAnswer = i === question.correctIndex;
+
+        let background = theme.colors.surface;
+        let border = theme.colors.border;
+
+        if (showExplanation) {
+          if (isAnswer) background = "#E6FAEF";
+          else if (isSelected) background = "#FDECEC";
+        } else if (isSelected) {
+          background = theme.colors.primaryLight;
+          border = theme.colors.primary;
+        }
+
+        return (
           <TouchableOpacity
-            onPress={() => router.back()}
+            key={i}
+            onPress={() => handleSelect(i)}
             style={{
-              backgroundColor: "#ff9db2",
-              padding: 14,
-              borderRadius: 12,
-              alignItems: "center",
-              marginTop: 30,
+              padding: 16,
+              borderRadius: theme.radius.md,
+              borderWidth: 1,
+              borderColor: border,
+              backgroundColor: background,
+              marginBottom: 10,
             }}
           >
-            <Text style={{ color: "#fff", fontWeight: "700" }}>Complete Lesson</Text>
+            <Text style={{ fontSize: theme.fontSizes.md }}>{choice}</Text>
           </TouchableOpacity>
-        </>
+        );
+      })}
+
+      {showExplanation && (
+        <View
+          style={{
+            backgroundColor: theme.colors.surface,
+            padding: 16,
+            borderRadius: theme.radius.md,
+            marginTop: 10,
+            ...theme.shadow.card,
+          }}
+        >
+          <Text style={{ fontWeight: "700", marginBottom: 4 }}>
+            {isCorrect ? "✅ Correct!" : "❌ Not quite"}
+          </Text>
+          <Text style={{ color: theme.colors.textLight }}>
+            {question.explanation}
+          </Text>
+        </View>
       )}
 
-      {lesson.type === "quiz" && (
-        <>
-          {lesson.questions?.map((q: any, i: number) => (
-            <View key={i} style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 10 }}>{q.q}</Text>
-              {q.choices.map((c: string, ci: number) => (
-                <TouchableOpacity
-                  key={ci}
-                  onPress={() => handleSelect(i, ci)}
-                  style={{
-                    padding: 12,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: selectedAnswers[i] === ci ? "#ff9db2" : "#ddd",
-                    backgroundColor: selectedAnswers[i] === ci ? "#ffebf0" : "#fff",
-                    marginBottom: 6,
-                  }}
-                >
-                  <Text style={{ color: "#333" }}>{c}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ))}
-
-          {!quizCompleted ? (
-            <TouchableOpacity
-              onPress={handleQuizComplete}
-              style={{
-                backgroundColor: "#ff9db2",
-                padding: 14,
-                borderRadius: 12,
-                alignItems: "center",
-                marginTop: 20,
-              }}
-            >
-              <Text style={{ color: "#fff", fontWeight: "700" }}>Submit Quiz</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={{ alignItems: "center", marginTop: 20 }}>
-              <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 10 }}>
-                You scored {score}/{lesson.questions.length}!
-              </Text>
-              <TouchableOpacity
-                onPress={() => router.back()}
-                style={{
-                  backgroundColor: "#ff9db2",
-                  padding: 14,
-                  borderRadius: 12,
-                  alignItems: "center",
-                  marginTop: 10,
-                }}
-              >
-                <Text style={{ color: "#fff", fontWeight: "700" }}>Back to Lessons</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </>
+      {showExplanation && (
+        <TouchableOpacity
+          onPress={handleNext}
+          style={{
+            marginTop: theme.spacing.lg,
+            backgroundColor: theme.colors.primary,
+            padding: 16,
+            borderRadius: theme.radius.md,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700" }}>
+            {currentIndex + 1 === lesson.questions.length
+              ? "Finish"
+              : "Continue"}
+          </Text>
+        </TouchableOpacity>
       )}
-    </ScrollView>
+    </AppContainer>
   );
 }
