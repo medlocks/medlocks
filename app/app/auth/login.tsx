@@ -93,9 +93,9 @@ export default function LoginScreen() {
     >
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Text style={styles.title}>Welcome Back 👋</Text>
+          <Text style={styles.title}>Welcome 👋</Text>
           <Text style={styles.subtitle}>
-            Sign in to continue your hair journey
+            Sign in to continue your healthy hair journey
           </Text>
 
           <Controller
