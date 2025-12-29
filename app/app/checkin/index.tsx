@@ -21,19 +21,31 @@ export default function WeeklyCheckIn() {
   const [notes, setNotes] = useState("");
 
   const submit = async () => {
-    if (!auth.currentUser || !hairFeel) return;
+  if (!auth.currentUser || !hairFeel) return;
 
-    await addDoc(
-      collection(db, `users/${auth.currentUser.uid}/weeklyFeedback`),
-      {
-        hairFeel,
-        notes,
-        createdAt: new Date(),
-      }
-    );
+  const uid = auth.currentUser.uid;
 
-    router.replace("/profile");
-  };
+  await addDoc(
+    collection(db, `users/${uid}/weeklyFeedback`),
+    {
+      hairFeel,
+      notes,
+      createdAt: new Date(),
+    }
+  );
+
+  await fetch(
+    "https://us-central1-medlocks-f3fe7.cloudfunctions.net/regenerateAIHairPlan",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid }),
+    }
+  );
+
+  router.replace("/"); // back to homepage with new plan
+};
+
 
   return (
     <AppContainer>

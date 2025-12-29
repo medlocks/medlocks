@@ -3,6 +3,8 @@ import * as functions from "firebase-functions/v2";
 import express from "express";
 import cors from "cors";
 import { generateAIHairPlan, HairProfile } from "./aiPlanGenerator";
+import { regeneratePlanFromFeedback } from "./regeneratePlanFromFeedback";
+import { onRequest } from "firebase-functions/https";
 
 admin.initializeApp();
 const firestore = admin.firestore();
@@ -36,14 +38,34 @@ app.post("/", async (req, res) => {
   }
 });
 
-// ✅ Export as v2 HTTPS function with secret attached
 export const createAIHairPlan = functions.https.onRequest(
   {
     region: "us-central1",
     timeoutSeconds: 120,
     memory: "512MiB",
-    secrets: ["OPENAI_KEY_SECRET"], // <- attach Firebase secret
+    secrets: ["OPENAI_KEY_SECRET"],
   },
   app
 );
+
+export const regenerateAIHairPlan = onRequest(async (req, res) => {
+  try {
+    const uid = req.body.uid;
+
+    if (!uid) {
+      res.status(400).json({ success: false, error: "Missing uid" });
+      return;
+    }
+
+    const plan = await regeneratePlanFromFeedback(admin.firestore(), uid);
+
+    res.json({ success: true, plan });
+    return;
+  } catch (err) {
+    console.error("Regenerate plan failed:", err);
+    res.status(500).json({ success: false });
+    return;
+  }
+});
+
 
