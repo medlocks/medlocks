@@ -21,6 +21,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [hasPlan, setHasPlan] = useState(false);
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
+  const [showCheckIn, setShowCheckIn] = useState(true); // TEMP: always true
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -133,6 +134,53 @@ export default function HomeScreen() {
   // --- If user HAS a plan ---
   return (
     <AppContainer>
+      {showCheckIn && (
+  <View
+    style={{
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+    }}
+  >
+    <Text
+      style={{
+        fontSize: theme.fontSizes.lg,
+        fontWeight: "800",
+        color: "#fff",
+        marginBottom: theme.spacing.xs,
+      }}
+    >
+      ✨ Weekly Hair Check-In
+    </Text>
+
+    <Text
+      style={{
+        fontSize: theme.fontSizes.sm,
+        color: "rgba(255,255,255,0.9)",
+        marginBottom: theme.spacing.md,
+      }}
+    >
+      Help your AI refine your routine and get you closer to your goal hair.
+    </Text>
+
+    <Button
+      mode="contained"
+      onPress={() => router.push("../checkin")}
+      style={{
+        backgroundColor: "#fff",
+        borderRadius: theme.radius.md,
+      }}
+      labelStyle={{
+        color: theme.colors.primary,
+        fontWeight: "700",
+      }}
+    >
+      Start Check-In →
+    </Button>
+  </View>
+)}
+
       <View style={{ flex: 1 }}>
         <Text
           style={{
