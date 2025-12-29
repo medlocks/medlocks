@@ -33,6 +33,7 @@ export default function HomeScreen() {
   const [hasPlan, setHasPlan] = useState(false);
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
   const [completed, setCompleted] = useState<string[]>([]);
+  const [showWeeklyCheckIn, setShowWeeklyCheckIn] = useState(true); // TEMP
 
   const todayKey = new Date().toISOString().split("T")[0];
 
@@ -147,6 +148,54 @@ export default function HomeScreen() {
 
   return (
     <AppContainer>
+      {showWeeklyCheckIn && (
+  <View
+    style={{
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+    }}
+  >
+    <Text
+      style={{
+        fontSize: theme.fontSizes.lg,
+        fontWeight: "800",
+        color: "#fff",
+        marginBottom: theme.spacing.xs,
+      }}
+    >
+      ✨ Weekly Hair Check-In
+    </Text>
+
+    <Text
+      style={{
+        fontSize: theme.fontSizes.sm,
+        color: "rgba(255,255,255,0.9)",
+        marginBottom: theme.spacing.md,
+      }}
+    >
+      Tell your AI coach how your hair felt this week so your next plan gets even
+      better.
+    </Text>
+
+    <Button
+      mode="contained"
+      onPress={() => router.push("../checkin")}
+      style={{
+        backgroundColor: "#fff",
+        borderRadius: theme.radius.md,
+      }}
+      labelStyle={{
+        color: theme.colors.primary,
+        fontWeight: "800",
+      }}
+    >
+      Start Check-In →
+    </Button>
+  </View>
+)}
+
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: theme.fontSizes.xl, fontWeight: "800" }}>
           Today 💖
