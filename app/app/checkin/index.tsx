@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import {
-  View,
   Text,
   TouchableOpacity,
   TextInput,
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { db, auth } from "@/services/firebase";
@@ -19,152 +19,125 @@ export default function WeeklyCheckIn() {
   const router = useRouter();
   const [hairFeel, setHairFeel] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const submit = async () => {
-  if (!auth.currentUser || !hairFeel) return;
+    if (!auth.currentUser || !hairFeel) return;
 
-  const uid = auth.currentUser.uid;
+    try {
+      setLoading(true);
+      const uid = auth.currentUser.uid;
 
-  await addDoc(
-    collection(db, `users/${uid}/weeklyFeedback`),
-    {
-      hairFeel,
-      notes,
-      createdAt: new Date(),
+      await addDoc(collection(db, `users/${uid}/weeklyFeedback`), {
+        hairFeel,
+        notes,
+        createdAt: new Date(),
+      });
+
+      const res = await fetch(
+        "https://us-central1-medlocks-f3fe7.cloudfunctions.net/regenerateAIHairPlan",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid }),
+        }
+      );
+
+      if (!res.ok) throw new Error("Plan update failed");
+
+      router.replace("/");
+    } catch (err) {
+      console.error(err);
+      alert("Could not update your plan. Try again.");
+    } finally {
+      setLoading(false);
     }
-  );
-
-  await fetch(
-    "https://us-central1-medlocks-f3fe7.cloudfunctions.net/regenerateAIHairPlan",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uid }),
-    }
-  );
-
-  router.replace("/"); // back to homepage with new plan
-};
-
+  };
 
   return (
     <AppContainer>
-    <SafeAreaView style={styles.safe}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={styles.emoji}>✨</Text>
+      <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.emoji}>✨</Text>
+          <Text style={styles.title}>Weekly Hair Check-In</Text>
+          <Text style={styles.subtitle}>
+            Your answers help us adapt your routine.
+          </Text>
 
-        <Text style={styles.title}>Weekly Hair Check-In</Text>
+          <Text style={styles.question}>
+            How does your hair feel compared to last week?
+          </Text>
 
-        <Text style={styles.subtitle}>
-          Tell us how your hair felt this week so your plan can adapt.
-        </Text>
-
-        {/* QUESTION — THIS WAS INVISIBLE BEFORE */}
-        <Text style={styles.question}>
-          How does your hair feel compared to last week?
-        </Text>
-
-        {/* OPTIONS */}
-        {FEEL_OPTIONS.map((option) => {
-          const selected = hairFeel === option;
-
-          return (
-            <TouchableOpacity
-              key={option}
-              onPress={() => setHairFeel(option)}
-              activeOpacity={0.85}
-              style={[
-                styles.option,
-                selected && styles.optionSelected,
-              ]}
-            >
-              <Text
+          {FEEL_OPTIONS.map((option) => {
+            const selected = hairFeel === option;
+            return (
+              <TouchableOpacity
+                key={option}
+                onPress={() => setHairFeel(option)}
                 style={[
-                  styles.optionText,
-                  selected && styles.optionTextSelected,
+                  styles.option,
+                  selected && styles.optionSelected,
                 ]}
               >
-                {option}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+                <Text
+                  style={[
+                    styles.optionText,
+                    selected && styles.optionTextSelected,
+                  ]}
+                >
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
 
-        {/* NOTES */}
-        <Text style={styles.label}>Anything you noticed?</Text>
-        <TextInput
-          placeholder="Dryness, breakage, shedding, scalp issues…"
-          placeholderTextColor="#999"
-          style={styles.input}
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-        />
+          <Text style={styles.label}>Anything you noticed?</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Dryness, shedding, scalp issues…"
+            placeholderTextColor="#999"
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+          />
 
-        {/* CTA */}
-        <TouchableOpacity
-          style={[
-            styles.btn,
-            !hairFeel && styles.btnDisabled,
-          ]}
-          disabled={!hairFeel}
-          onPress={submit}
-        >
-          <Text style={styles.btnText}>Update My Plan →</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+          <TouchableOpacity
+            style={[styles.btn, (!hairFeel || loading) && styles.btnDisabled]}
+            onPress={submit}
+            disabled={!hairFeel || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Update My Plan →</Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
     </AppContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: "#ffffff", // FORCE LIGHT
-  },
-  scroll: {
-    padding: 24,
-    paddingBottom: 48,
-  },
+  safe: { flex: 1, backgroundColor: "#fff" },
+  scroll: { padding: 24, paddingBottom: 48 },
 
-  emoji: {
-    fontSize: 48,
-    textAlign: "center",
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    textAlign: "center",
-    color: "#111111",
-  },
+  emoji: { fontSize: 48, textAlign: "center", marginBottom: 8 },
+  title: { fontSize: 28, fontWeight: "800", textAlign: "center" },
   subtitle: {
     fontSize: 15,
     textAlign: "center",
-    color: "#666666",
-    marginTop: 6,
+    color: "#666",
     marginBottom: 28,
-    lineHeight: 20,
   },
 
-  question: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#222222", // EXPLICIT
-    marginBottom: 14,
-  },
+  question: { fontSize: 18, fontWeight: "700", marginBottom: 14 },
 
   option: {
     borderWidth: 1.5,
     borderColor: "#e6e6e6",
     borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    padding: 16,
     marginBottom: 10,
     backgroundColor: "#fafafa",
   },
@@ -172,33 +145,18 @@ const styles = StyleSheet.create({
     borderColor: "#ff9db2",
     backgroundColor: "#ffebf0",
   },
-  optionText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333333",
-  },
-  optionTextSelected: {
-    color: "#c2185b",
-  },
+  optionText: { fontSize: 16, fontWeight: "600" },
+  optionTextSelected: { color: "#c2185b" },
 
-  label: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#444444",
-    marginTop: 20,
-    marginBottom: 6,
-  },
-
+  label: { fontSize: 15, fontWeight: "600", marginTop: 20 },
   input: {
     borderWidth: 1.5,
     borderColor: "#e6e6e6",
     borderRadius: 16,
     padding: 14,
     minHeight: 90,
-    fontSize: 15,
-    color: "#111111",
+    marginTop: 6,
     backgroundColor: "#fafafa",
-    textAlignVertical: "top",
   },
 
   btn: {
@@ -207,14 +165,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginTop: 28,
   },
-  btnDisabled: {
-    opacity: 0.5,
-  },
+  btnDisabled: { opacity: 0.5 },
   btnText: {
-    color: "#ffffff",
+    color: "#fff",
     textAlign: "center",
     fontWeight: "800",
     fontSize: 16,
   },
 });
-
