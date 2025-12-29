@@ -6,16 +6,17 @@ import {
   TextInput,
   StyleSheet,
   SafeAreaView,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { db, auth } from "@/services/firebase";
 import { collection, addDoc } from "firebase/firestore";
+import AppContainer from "@/components/AppContainer";
 
 const FEEL_OPTIONS = ["Better", "Same", "Worse"];
 
 export default function WeeklyCheckIn() {
   const router = useRouter();
-
   const [hairFeel, setHairFeel] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
 
@@ -35,21 +36,26 @@ export default function WeeklyCheckIn() {
   };
 
   return (
+    <AppContainer>
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        {/* Header */}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.emoji}>✨</Text>
+
         <Text style={styles.title}>Weekly Hair Check-In</Text>
+
         <Text style={styles.subtitle}>
-          Help your AI fine-tune your routine for even better results.
+          Tell us how your hair felt this week so your plan can adapt.
         </Text>
 
-        {/* Question */}
+        {/* QUESTION — THIS WAS INVISIBLE BEFORE */}
         <Text style={styles.question}>
           How does your hair feel compared to last week?
         </Text>
 
-        {/* Options */}
+        {/* OPTIONS */}
         {FEEL_OPTIONS.map((option) => {
           const selected = hairFeel === option;
 
@@ -75,10 +81,10 @@ export default function WeeklyCheckIn() {
           );
         })}
 
-        {/* Notes */}
-        <Text style={styles.label}>Anything you'd like to add?</Text>
+        {/* NOTES */}
+        <Text style={styles.label}>Anything you noticed?</Text>
         <TextInput
-          placeholder="Dryness, breakage, scalp issues, styling struggles…"
+          placeholder="Dryness, breakage, shedding, scalp issues…"
           placeholderTextColor="#999"
           style={styles.input}
           value={notes}
@@ -86,7 +92,7 @@ export default function WeeklyCheckIn() {
           multiline
         />
 
-        {/* Submit */}
+        {/* CTA */}
         <TouchableOpacity
           style={[
             styles.btn,
@@ -97,45 +103,48 @@ export default function WeeklyCheckIn() {
         >
           <Text style={styles.btnText}>Update My Plan →</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
+    </AppContainer>
   );
 }
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff", // FORCE LIGHT
   },
-  container: {
-    flex: 1,
+  scroll: {
     padding: 24,
+    paddingBottom: 48,
   },
 
   emoji: {
     fontSize: 48,
     textAlign: "center",
+    marginTop: 12,
     marginBottom: 8,
   },
   title: {
     fontSize: 28,
     fontWeight: "800",
     textAlign: "center",
-    color: "#111",
+    color: "#111111",
   },
   subtitle: {
+    fontSize: 15,
     textAlign: "center",
-    color: "#666",
-    marginBottom: 28,
+    color: "#666666",
     marginTop: 6,
+    marginBottom: 28,
     lineHeight: 20,
   },
 
   question: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#222",
-    marginBottom: 12,
+    color: "#222222", // EXPLICIT
+    marginBottom: 14,
   },
 
   option: {
@@ -154,7 +163,7 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: "#333333",
   },
   optionTextSelected: {
     color: "#c2185b",
@@ -163,7 +172,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#444",
+    color: "#444444",
     marginTop: 20,
     marginBottom: 6,
   },
@@ -175,8 +184,9 @@ const styles = StyleSheet.create({
     padding: 14,
     minHeight: 90,
     fontSize: 15,
-    color: "#111",
+    color: "#111111",
     backgroundColor: "#fafafa",
+    textAlignVertical: "top",
   },
 
   btn: {
@@ -189,7 +199,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   btnText: {
-    color: "#fff",
+    color: "#ffffff",
     textAlign: "center",
     fontWeight: "800",
     fontSize: 16,
