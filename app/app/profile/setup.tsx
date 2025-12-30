@@ -138,9 +138,13 @@ export default function UserProfile() {
     };
 
     try {
-      await setDoc(doc(db, "users", user.uid), userDoc);
-      await generateHairPlan(userDoc);
-      router.replace("/(tabs)");
+      await setDoc(doc(db, "users", user.uid), userDoc, { merge: true });
+      generateHairPlan(userDoc).catch((err) => {
+  console.warn("AI plan generation error (non-blocking):", err);
+});
+
+router.replace("/(tabs)");
+
     } catch (err) {
       console.error("AI generation failed:", err);
       alert("Failed to generate AI hair plan.");
