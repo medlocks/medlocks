@@ -12,12 +12,13 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { Button } from "react-native-paper";
 import theme from "@/theme";
 import AppContainer from "../../components/AppContainer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { updateStreakForDay } from "@/services/streaks";
 
 interface Task {
   action: string;
@@ -33,15 +34,18 @@ export default function HomeScreen() {
   const [hasPlan, setHasPlan] = useState(false);
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
   const [completed, setCompleted] = useState<string[]>([]);
-  const [showWeeklyCheckIn, setShowWeeklyCheckIn] = useState(true); // TEMP
+  const [streak, setStreak] = useState(0);
+  const [showWeeklyCheckIn] = useState(true);
 
   const todayKey = new Date().toISOString().split("T")[0];
 
+  /**
+   * 1️⃣ LOAD PLAN + TODAY TASKS
+   */
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
 
-      // 1️⃣ Load plan
       const planSnap = await getDoc(
         doc(db, "users", user.uid, "plan", "current")
       );
@@ -53,6 +57,7 @@ export default function HomeScreen() {
       }
 
       const routine = planSnap.data()?.routine || [];
+
       if (routine.length === 0) {
         setHasPlan(false);
         setLoading(false);
@@ -61,18 +66,13 @@ export default function HomeScreen() {
 
       setHasPlan(true);
 
-      // Today = index 0 of rolling plan
+      // 👉 Rolling plan: today = index 0
       setTodayTasks([routine[0]]);
 
-      // 2️⃣ Load completion state
-      const completionRef = doc(
-        db,
-        "users",
-        user.uid,
-        "dailyCompletions",
-        todayKey
+      // Load completion state
+      const completionSnap = await getDoc(
+        doc(db, "users", user.uid, "dailyCompletions", todayKey)
       );
-      const completionSnap = await getDoc(completionRef);
 
       if (completionSnap.exists()) {
         setCompleted(completionSnap.data().completedActions || []);
@@ -84,6 +84,61 @@ export default function HomeScreen() {
     fetchData();
   }, []);
 
+  /**
+   * 2️⃣ AUTO-COMPLETE DAYS WITH NO TASKS
+   */
+  useEffect(() => {
+    if (!user || loading) return;
+
+    if (todayTasks.length === 0) {
+      const autoCompleteDay = async () => {
+        const ref = doc(
+          db,
+          "users",
+          user.uid,
+          "dailyCompletions",
+          todayKey
+        );
+
+        const snap = await getDoc(ref);
+
+        if (!snap.exists()) {
+          await setDoc(ref, {
+            autoCompleted: true,
+            date: todayKey,
+            updatedAt: serverTimestamp(),
+          });
+
+          await updateStreakForDay(user.uid, todayKey);
+        }
+      };
+
+      autoCompleteDay();
+    }
+  }, [todayTasks, loading]);
+
+  /**
+   * 3️⃣ LOAD CURRENT STREAK
+   */
+  useEffect(() => {
+    if (!user) return;
+
+    const loadStreak = async () => {
+      const snap = await getDoc(
+        doc(db, "users", user.uid, "stats", "streak")
+      );
+
+      if (snap.exists()) {
+        setStreak(snap.data().currentStreak || 0);
+      }
+    };
+
+    loadStreak();
+  }, []);
+
+  /**
+   * 4️⃣ TOGGLE TASK COMPLETION + UPDATE STREAK
+   */
   const toggleComplete = async (action: string) => {
     if (!user) return;
 
@@ -103,12 +158,26 @@ export default function HomeScreen() {
 
     await setDoc(
       ref,
-      { completedActions: newCompleted },
+      {
+        completedActions: newCompleted,
+        date: todayKey,
+        updatedAt: serverTimestamp(),
+      },
       { merge: true }
     );
+
+    const allTasksDone =
+      todayTasks.length > 0 &&
+      todayTasks.every(t => newCompleted.includes(t.action));
+
+    if (allTasksDone) {
+      await updateStreakForDay(user.uid, todayKey);
+    }
   };
 
-  // --- LOADING ---
+  /**
+   * LOADING STATE
+   */
   if (loading) {
     return (
       <AppContainer>
@@ -117,7 +186,9 @@ export default function HomeScreen() {
     );
   }
 
-  // --- NO PLAN ---
+  /**
+   * NO PLAN STATE
+   */
   if (!hasPlan) {
     return (
       <AppContainer>
@@ -146,152 +217,137 @@ export default function HomeScreen() {
     todayTasks.length > 0 &&
     todayTasks.every(t => completed.includes(t.action));
 
+  /**
+   * MAIN UI
+   */
   return (
     <AppContainer>
       {showWeeklyCheckIn && (
-  <View
-    style={{
-      backgroundColor: theme.colors.primary,
-      borderRadius: theme.radius.lg,
-      padding: theme.spacing.lg,
-      marginBottom: theme.spacing.lg,
-    }}
-  >
-    <Text
-      style={{
-        fontSize: theme.fontSizes.lg,
-        fontWeight: "800",
-        color: "#fff",
-        marginBottom: theme.spacing.xs,
-      }}
-    >
-      ✨ Weekly Hair Check-In
-    </Text>
-
-    <Text
-      style={{
-        fontSize: theme.fontSizes.sm,
-        color: "rgba(255,255,255,0.9)",
-        marginBottom: theme.spacing.md,
-      }}
-    >
-      Tell your AI coach how your hair felt this week so your next plan gets even
-      better.
-    </Text>
-
-    <Button
-      mode="contained"
-      onPress={() => router.push("../checkin")}
-      style={{
-        backgroundColor: "#fff",
-        borderRadius: theme.radius.md,
-      }}
-      labelStyle={{
-        color: theme.colors.primary,
-        fontWeight: "800",
-      }}
-    >
-      Start Check-In →
-    </Button>
-  </View>
-)}
-
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: theme.fontSizes.xl, fontWeight: "800" }}>
-          Today 💖
-        </Text>
-        <Text style={{ color: theme.colors.textLight, marginBottom: 16 }}>
-          Small steps = great hair.
-        </Text>
-
-        {allDone && (
-          <View
+        <View
+          style={{
+            backgroundColor: theme.colors.primary,
+            borderRadius: theme.radius.lg,
+            padding: theme.spacing.lg,
+            marginBottom: theme.spacing.lg,
+          }}
+        >
+          <Text
             style={{
-              backgroundColor: "#E8F7EE",
-              borderRadius: theme.radius.lg,
-              padding: theme.spacing.md,
+              fontSize: theme.fontSizes.lg,
+              fontWeight: "800",
+              color: "#fff",
+              marginBottom: theme.spacing.xs,
+            }}
+          >
+            ✨ Weekly Hair Check-In
+          </Text>
+
+          <Text
+            style={{
+              fontSize: theme.fontSizes.sm,
+              color: "rgba(255,255,255,0.9)",
               marginBottom: theme.spacing.md,
             }}
           >
-            <Text
+            Tell your AI coach how your hair felt this week.
+          </Text>
+
+          <Button
+            mode="contained"
+            onPress={() => router.push("../checkin")}
+            style={{ backgroundColor: "#fff" }}
+            labelStyle={{ color: theme.colors.primary, fontWeight: "800" }}
+          >
+            Start Check-In →
+          </Button>
+        </View>
+      )}
+
+      <Text style={{ fontSize: theme.fontSizes.xl, fontWeight: "800" }}>
+        Today 💖
+      </Text>
+      <Text style={{ color: theme.colors.textLight, marginBottom: 12 }}>
+        Small steps = great hair.
+      </Text>
+
+      <Text style={{ fontSize: 22, fontWeight: "800", marginBottom: 12 }}>
+        🔥 {streak} day streak
+      </Text>
+
+      {allDone && (
+        <View
+          style={{
+            backgroundColor: "#E8F7EE",
+            borderRadius: theme.radius.lg,
+            padding: theme.spacing.md,
+            marginBottom: theme.spacing.md,
+          }}
+        >
+          <Text style={{ fontWeight: "800", color: "#1E7F4F" }}>
+            🎉 All tasks complete!
+          </Text>
+          <Text style={{ color: "#1E7F4F", marginTop: 4 }}>
+            Keep the streak alive ✨
+          </Text>
+        </View>
+      )}
+
+      <FlatList
+        data={todayTasks}
+        keyExtractor={item => item.action}
+        renderItem={({ item }) => {
+          const isDone = completed.includes(item.action);
+
+          return (
+            <TouchableOpacity
+              onPress={() => toggleComplete(item.action)}
+              activeOpacity={0.85}
               style={{
-                fontWeight: "800",
-                color: "#1E7F4F",
-                fontSize: theme.fontSizes.md,
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: isDone ? "#FFF0F5" : theme.colors.surface,
+                borderRadius: theme.radius.lg,
+                padding: theme.spacing.lg,
+                marginBottom: theme.spacing.md,
+                borderWidth: 1.5,
+                borderColor: isDone
+                  ? theme.colors.primary
+                  : theme.colors.border,
               }}
             >
-              🎉 All tasks complete!
-            </Text>
-            <Text style={{ color: "#1E7F4F", marginTop: 4 }}>
-              Your hair thanks you. Keep the streak alive ✨
-            </Text>
-          </View>
-        )}
+              <MaterialCommunityIcons
+                name={
+                  isDone
+                    ? "checkbox-marked-circle"
+                    : "checkbox-blank-circle-outline"
+                }
+                size={28}
+                color={
+                  isDone ? theme.colors.primary : theme.colors.textLight
+                }
+                style={{ marginRight: 14 }}
+              />
 
-        <FlatList
-          data={todayTasks}
-          keyExtractor={item => item.action}
-          renderItem={({ item }) => {
-            const isDone = completed.includes(item.action);
-
-            return (
-              <TouchableOpacity
-                onPress={() => toggleComplete(item.action)}
-                activeOpacity={0.85}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  backgroundColor: isDone
-                    ? "#FFF0F5"
-                    : theme.colors.surface,
-                  borderRadius: theme.radius.lg,
-                  padding: theme.spacing.lg,
-                  marginBottom: theme.spacing.md,
-                  borderWidth: 1.5,
-                  borderColor: isDone
-                    ? theme.colors.primary
-                    : theme.colors.border,
-                }}
-              >
-                <MaterialCommunityIcons
-                  name={
-                    isDone
-                      ? "checkbox-marked-circle"
-                      : "checkbox-blank-circle-outline"
-                  }
-                  size={28}
-                  color={
-                    isDone ? theme.colors.primary : theme.colors.textLight
-                  }
-                  style={{ marginRight: 14 }}
-                />
-
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      fontSize: theme.fontSizes.md,
-                      fontWeight: "700",
-                      textDecorationLine: isDone
-                        ? "line-through"
-                        : "none",
-                    }}
-                  >
-                    {item.action}
-                  </Text>
-                  <Text
-                    style={{
-                      color: theme.colors.textLight,
-                      marginTop: 4,
-                    }}
-                  >
-                    {item.details}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          }}
-        />
-      </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: theme.fontSizes.md,
+                    fontWeight: "700",
+                    textDecorationLine: isDone
+                      ? "line-through"
+                      : "none",
+                  }}
+                >
+                  {item.action}
+                </Text>
+                <Text style={{ color: theme.colors.textLight, marginTop: 4 }}>
+                  {item.details}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+      />
     </AppContainer>
   );
 }
