@@ -23,13 +23,23 @@ import theme from "@/theme";
 const hairTypes = ["Straight", "Wavy", "Curly", "Coily"];
 const hairGoalsOptions = ["Growth", "Health", "Volume", "Shine", "Repair"];
 
-const schema = yup.object().shape({
+/* ---------------------------- */
+/* ✅ VALIDATION SCHEMA */
+/* ---------------------------- */
+const schema = yup.object({
   hairType: yup.string().required("Select your hair type"),
-  hairGoals: yup.array().min(1, "Select at least one goal"),
+  hairGoals: yup.array().of(yup.string()).min(1, "Select at least one goal"),
   washFrequency: yup.string().required("Enter wash frequency"),
   products: yup.string(),
+  dateOfBirth: yup
+    .string()
+    .required("Date of birth is required")
+    .matches(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format"),
 });
 
+/* ---------------------------- */
+/* AUTH HOOK */
+/* ---------------------------- */
 const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +55,9 @@ const useAuth = () => {
   return { user, loading };
 };
 
+/* ---------------------------- */
+/* SCREEN */
+/* ---------------------------- */
 export default function UserProfile() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -64,17 +77,21 @@ export default function UserProfile() {
       hairGoals: [],
       washFrequency: "",
       products: "",
+      dateOfBirth: "",
     },
   });
 
+  /* ---------------------------- */
+  /* LOAD EXISTING PROFILE */
+  /* ---------------------------- */
   useEffect(() => {
     if (!user) return;
+
     const fetchProfile = async () => {
       try {
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) {
+          const data = snap.data();
           setValue("hairType", data.hairType || "");
           setValue("hairGoals", data.hairGoals || []);
           setValue("washFrequency", data.currentRoutine?.washFrequency || "");
@@ -82,6 +99,7 @@ export default function UserProfile() {
             "products",
             (data.currentRoutine?.products || []).join(", ")
           );
+          setValue("dateOfBirth", data.dateOfBirth || "");
         }
       } catch (err) {
         console.error("Error fetching profile:", err);
@@ -89,19 +107,25 @@ export default function UserProfile() {
         setLoading(false);
       }
     };
+
     fetchProfile();
   }, [user]);
 
+  /* ---------------------------- */
+  /* SUBMIT */
+  /* ---------------------------- */
   const onSubmit = async (data: any) => {
-    if (authLoading || !user) return alert("Please log in first.");
+    if (!user) return;
+
     setSubmitting(true);
 
     const productsArray = data.products
       .split(",")
       .map((p: string) => p.trim())
-      .filter((p: string) => p.length > 0);
+      .filter(Boolean);
 
     const userDoc = {
+      uid: user.uid,
       hairType: data.hairType,
       hairGoals: data.hairGoals,
       dateOfBirth: data.dateOfBirth,
@@ -110,27 +134,24 @@ export default function UserProfile() {
         washFrequency: data.washFrequency,
         products: productsArray,
       },
-      updatedAt: new Date(),
-      uid: user.uid,
+      updatedAt: new Date().toISOString(),
     };
 
     try {
       await setDoc(doc(db, "users", user.uid), userDoc, { merge: true });
-      const aiPlan = await generateHairPlan(userDoc);
-      await setDoc(
-        doc(db, "users", user.uid),
-        { hairPlan: aiPlan },
-        { merge: true }
-      );
+      await generateHairPlan(userDoc);
       router.replace("/(tabs)");
     } catch (err) {
-      console.error("💥 AI generation failed:", err);
+      console.error("AI generation failed:", err);
       alert("Failed to generate AI hair plan.");
     } finally {
       setSubmitting(false);
     }
   };
 
+  /* ---------------------------- */
+  /* LOADING */
+  /* ---------------------------- */
   if (loading || authLoading) {
     return (
       <View style={styles.loading}>
@@ -142,8 +163,9 @@ export default function UserProfile() {
     );
   }
 
-  const selectedGoals = watch("hairGoals");
-
+  /* ---------------------------- */
+  /* RENDER */
+  /* ---------------------------- */
   return (
     <LinearGradient
       colors={[theme.colors.background, theme.colors.surface]}
@@ -153,8 +175,27 @@ export default function UserProfile() {
         <ScrollView contentContainerStyle={styles.container}>
           <Text style={styles.title}>Your Hair Profile 💆‍♀️</Text>
           <Text style={styles.subtitle}>
-            Let’s get to know your hair so we can build your perfect routine.
+            This helps us personalise your routine properly.
           </Text>
+
+          {/* DOB */}
+          <Text style={styles.label}>Date of Birth</Text>
+          <Controller
+            control={control}
+            name="dateOfBirth"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                style={styles.input}
+                placeholder="YYYY-MM-DD"
+                value={value}
+                onChangeText={onChange}
+                placeholderTextColor={theme.colors.textMuted}
+              />
+            )}
+          />
+          {errors.dateOfBirth && (
+            <Text style={styles.error}>{errors.dateOfBirth.message}</Text>
+          )}
 
           {/* Hair Type */}
           <Text style={styles.label}>Hair Type</Text>
@@ -186,50 +227,52 @@ export default function UserProfile() {
               </View>
             )}
           />
-          {errors.hairType && (
-            <Text style={styles.error}>{errors.hairType.message}</Text>
-          )}
 
-          {/* Hair Goals */}
+          {/* Hair Goals — ✅ FIXED */}
           <Text style={styles.label}>Hair Goals</Text>
           <Controller
             control={control}
             name="hairGoals"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.optionContainer}>
-                {hairGoalsOptions.map((goal) => {
-                  const selected = value?.includes(goal);
-                  return (
-                    <TouchableOpacity
-                      key={goal}
-                      style={[
-                        styles.option,
-                        selected && styles.optionSelected,
-                      ]}
-                      onPress={() => {
-                        if (selected)
-                          onChange(value?.filter((g: string) => g !== goal));
-                        else onChange([...(value || []), goal]);
-                      }}
-                    >
-                      <Text
-                        style={
+            render={({ field: { value, onChange } }) => {
+              const goals: string[] = (value ?? []).filter(
+  (g): g is string => typeof g === "string"
+);
+
+
+              return (
+                <View style={styles.optionContainer}>
+                  {hairGoalsOptions.map((goal) => {
+                    const selected = goals.includes(goal);
+
+                    return (
+                      <TouchableOpacity
+                        key={goal}
+                        style={[
+                          styles.option,
+                          selected && styles.optionSelected,
+                        ]}
+                        onPress={() =>
                           selected
-                            ? styles.optionTextSelected
-                            : styles.optionText
+                            ? onChange(goals.filter((g) => g !== goal))
+                            : onChange([...goals, goal])
                         }
                       >
-                        {goal}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
+                        <Text
+                          style={
+                            selected
+                              ? styles.optionTextSelected
+                              : styles.optionText
+                          }
+                        >
+                          {goal}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              );
+            }}
           />
-          {errors.hairGoals && (
-            <Text style={styles.error}>{errors.hairGoals.message}</Text>
-          )}
 
           {/* Wash Frequency */}
           <Text style={styles.label}>Wash Frequency</Text>
@@ -239,16 +282,12 @@ export default function UserProfile() {
             render={({ field: { onChange, value } }) => (
               <TextInput
                 style={styles.input}
-                placeholder="e.g., 3x/week"
+                placeholder="e.g. 3x/week"
                 value={value}
                 onChangeText={onChange}
-                placeholderTextColor={theme.colors.textMuted}
               />
             )}
           />
-          {errors.washFrequency && (
-            <Text style={styles.error}>{errors.washFrequency.message}</Text>
-          )}
 
           {/* Products */}
           <Text style={styles.label}>Current Products</Text>
@@ -261,25 +300,18 @@ export default function UserProfile() {
                 placeholder="Shampoo X, Conditioner Y"
                 value={value}
                 onChangeText={onChange}
-                placeholderTextColor={theme.colors.textMuted}
               />
             )}
           />
 
-          {/* Submit */}
-          <TouchableOpacity
-            onPress={handleSubmit(onSubmit)}
-            disabled={submitting}
-            activeOpacity={0.9}
-          >
+          {/* SUBMIT */}
+          <TouchableOpacity onPress={handleSubmit(onSubmit)}>
             <LinearGradient
               colors={[theme.colors.primary, theme.colors.accent]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.button, submitting && { opacity: 0.6 }]}
+              style={styles.button}
             >
               <Text style={styles.buttonText}>
-                {submitting ? "Generating Plan..." : "Save & Generate Plan"}
+                {submitting ? "Generating..." : "Save & Generate Plan"}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -289,83 +321,34 @@ export default function UserProfile() {
   );
 }
 
+/* ---------------------------- */
+/* STYLES */
+/* ---------------------------- */
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  container: {
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
-  },
-  loading: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  title: {
-    fontSize: theme.fontSizes.xl,
-    fontWeight: "800",
-    textAlign: "center",
-    marginBottom: 6,
-    color: theme.colors.text,
-  },
-  subtitle: {
-    textAlign: "center",
-    color: theme.colors.textMuted,
-    fontSize: theme.fontSizes.md,
-    marginBottom: theme.spacing.lg,
-  },
-  label: {
-    fontSize: theme.fontSizes.md,
-    fontWeight: "600",
-    marginTop: theme.spacing.md,
-    color: theme.colors.text,
-  },
+  container: { padding: theme.spacing.lg },
+  loading: { flex: 1, justifyContent: "center", alignItems: "center" },
+  title: { fontSize: 26, fontWeight: "800", textAlign: "center" },
+  subtitle: { textAlign: "center", marginBottom: 16 },
+  label: { fontWeight: "600", marginTop: 16 },
   input: {
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-    marginTop: theme.spacing.xs,
-    fontSize: theme.fontSizes.md,
-    color: theme.colors.text,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 6,
     backgroundColor: "#fff",
   },
-  optionContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: theme.spacing.xs,
-  },
+  optionContainer: { flexDirection: "row", flexWrap: "wrap" },
   option: {
     borderWidth: 1,
-    borderColor: theme.colors.border,
     borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    padding: 10,
     margin: 4,
-    backgroundColor: theme.colors.surface,
   },
-  optionSelected: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  optionText: { color: theme.colors.text, fontSize: theme.fontSizes.sm },
-  optionTextSelected: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-  button: {
-    marginTop: theme.spacing.lg,
-    borderRadius: theme.radius.lg,
-    paddingVertical: theme.spacing.md,
-  },
-  buttonText: {
-    color: "#fff",
-    textAlign: "center",
-    fontSize: theme.fontSizes.md,
-    fontWeight: "700",
-  },
-  error: {
-    color: theme.colors.error,
-    fontSize: theme.fontSizes.sm,
-    marginTop: theme.spacing.xs,
-  },
+  optionSelected: { backgroundColor: theme.colors.primary },
+  optionText: { color: theme.colors.text },
+  optionTextSelected: { color: "#fff", fontWeight: "700" },
+  button: { marginTop: 24, padding: 16, borderRadius: 16 },
+  buttonText: { color: "#fff", textAlign: "center", fontWeight: "700" },
+  error: { color: theme.colors.error },
 });
