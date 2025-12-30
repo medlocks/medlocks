@@ -138,7 +138,7 @@ export default function UserProfile() {
     };
 
     try {
-      await setDoc(doc(db, "users", user.uid), userDoc, { merge: true });
+      await setDoc(doc(db, "users", user.uid), userDoc);
       await generateHairPlan(userDoc);
       router.replace("/(tabs)");
     } catch (err) {
