@@ -1,15 +1,6 @@
 import { auth } from "./firebase";
 import { signInAnonymously } from "firebase/auth";
-
-export interface HairProfile {
-  uid?: string;
-  hairType: string;
-  hairGoals: string[];
-  currentRoutine: { washFrequency: string; products: string[] };
-  products: string[];
-  previousPlan?: any;
-  weeklyFeedback?: any;
-}
+import { HairProfile } from "../types/HairProfile";
 
 async function ensureUser() {
   if (!auth.currentUser) {
@@ -33,7 +24,11 @@ export async function generateHairPlan(profile: HairProfile) {
     }
   );
 
-  if (!res.ok) throw new Error("AI generation failed");
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`AI generation failed: ${text}`);
+  }
+
   const data = await res.json();
   return data.plan;
 }

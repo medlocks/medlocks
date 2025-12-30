@@ -2,8 +2,9 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions/v2";
 import express from "express";
 import cors from "cors";
-import { generateAIHairPlan, HairProfile } from "./aiPlanGenerator";
+import { generateAIHairPlan } from "./aiPlanGenerator";
 import { regeneratePlanFromFeedback } from "./regeneratePlanFromFeedback";
+import { HairProfile } from "../../app/types/HairProfile";
 
 admin.initializeApp();
 const firestore = admin.firestore();

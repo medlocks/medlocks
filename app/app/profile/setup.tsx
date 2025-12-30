@@ -104,6 +104,7 @@ export default function UserProfile() {
     const userDoc = {
       hairType: data.hairType,
       hairGoals: data.hairGoals,
+      dateOfBirth: data.dateOfBirth,
       products: productsArray,
       currentRoutine: {
         washFrequency: data.washFrequency,
