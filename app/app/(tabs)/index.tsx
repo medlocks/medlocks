@@ -26,6 +26,24 @@ interface Task {
   time?: string;
 }
 
+const weekdayMap: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+function nextDate(day: string, start: Date) {
+  const target = weekdayMap[day];
+  const d = new Date(start);
+  const diff = (target + 7 - d.getDay()) % 7 || 7;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().split("T")[0];
+}
+
 export default function HomeScreen() {
   const user = auth.currentUser;
   const router = useRouter();
@@ -40,34 +58,42 @@ export default function HomeScreen() {
   const todayKey = new Date().toISOString().split("T")[0];
 
   /**
-   * 1️⃣ LOAD PLAN + TODAY TASKS
+   * 1️⃣ LOAD PLAN + CALCULATE TODAY TASKS (MATCHES CALENDAR)
    */
   useEffect(() => {
-    const fetchData = async () => {
+    const load = async () => {
       if (!user) return;
 
-      const planSnap = await getDoc(
+      const snap = await getDoc(
         doc(db, "users", user.uid, "plan", "current")
       );
 
-      if (!planSnap.exists()) {
+      if (!snap.exists()) {
         setHasPlan(false);
         setLoading(false);
         return;
       }
 
-      const routine = planSnap.data()?.routine || [];
+      const data = snap.data();
+      const routine = data?.routine || [];
+      const start = new Date(data.createdAt || new Date());
 
-      if (routine.length === 0) {
-        setHasPlan(false);
-        setLoading(false);
-        return;
-      }
+      const tasksForToday: Task[] = [];
+
+      routine.forEach((r: any) => {
+        if (!r.day) return;
+        const dateKey = nextDate(r.day, start);
+        if (dateKey === todayKey) {
+          tasksForToday.push({
+            action: r.action,
+            details: r.details,
+            time: r.time,
+          });
+        }
+      });
 
       setHasPlan(true);
-
-      // 👉 Rolling plan: today = index 0
-      setTodayTasks([routine[0]]);
+      setTodayTasks(tasksForToday);
 
       // Load completion state
       const completionSnap = await getDoc(
@@ -81,17 +107,17 @@ export default function HomeScreen() {
       setLoading(false);
     };
 
-    fetchData();
+    load();
   }, []);
 
   /**
-   * 2️⃣ AUTO-COMPLETE DAYS WITH NO TASKS
+   * 2️⃣ AUTO-COMPLETE DAYS WITH ZERO TASKS
    */
   useEffect(() => {
     if (!user || loading) return;
 
     if (todayTasks.length === 0) {
-      const autoCompleteDay = async () => {
+      const autoComplete = async () => {
         const ref = doc(
           db,
           "users",
@@ -113,12 +139,12 @@ export default function HomeScreen() {
         }
       };
 
-      autoCompleteDay();
+      autoComplete();
     }
   }, [todayTasks, loading]);
 
   /**
-   * 3️⃣ LOAD CURRENT STREAK
+   * 3️⃣ LOAD STREAK
    */
   useEffect(() => {
     if (!user) return;
@@ -127,7 +153,6 @@ export default function HomeScreen() {
       const snap = await getDoc(
         doc(db, "users", user.uid, "stats", "streak")
       );
-
       if (snap.exists()) {
         setStreak(snap.data().currentStreak || 0);
       }
@@ -137,7 +162,7 @@ export default function HomeScreen() {
   }, []);
 
   /**
-   * 4️⃣ TOGGLE TASK COMPLETION + UPDATE STREAK
+   * 4️⃣ TOGGLE COMPLETION
    */
   const toggleComplete = async (action: string) => {
     if (!user) return;
@@ -166,44 +191,29 @@ export default function HomeScreen() {
       { merge: true }
     );
 
-    const allTasksDone =
+    const allDone =
       todayTasks.length > 0 &&
       todayTasks.every(t => newCompleted.includes(t.action));
 
-    if (allTasksDone) {
+    if (allDone) {
       await updateStreakForDay(user.uid, todayKey);
     }
   };
 
-  /**
-   * LOADING STATE
-   */
   if (loading) {
     return (
       <AppContainer>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" />
       </AppContainer>
     );
   }
 
-  /**
-   * NO PLAN STATE
-   */
   if (!hasPlan) {
     return (
       <AppContainer>
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <Text style={{ fontSize: theme.fontSizes.xl, fontWeight: "800" }}>
+        <View style={{ alignItems: "center", marginTop: 80 }}>
+          <Text style={{ fontSize: 22, fontWeight: "800" }}>
             Medlocks Hair Coach
-          </Text>
-          <Text
-            style={{
-              marginVertical: theme.spacing.md,
-              color: theme.colors.textLight,
-              textAlign: "center",
-            }}
-          >
-            Your journey to healthy hair starts here.
           </Text>
           <Button mode="contained" onPress={() => router.push("/profile")}>
             Get Started →
@@ -217,133 +227,41 @@ export default function HomeScreen() {
     todayTasks.length > 0 &&
     todayTasks.every(t => completed.includes(t.action));
 
-  /**
-   * MAIN UI
-   */
   return (
     <AppContainer>
-      {showWeeklyCheckIn && (
-        <View
-          style={{
-            backgroundColor: theme.colors.primary,
-            borderRadius: theme.radius.lg,
-            padding: theme.spacing.lg,
-            marginBottom: theme.spacing.lg,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: theme.fontSizes.lg,
-              fontWeight: "800",
-              color: "#fff",
-              marginBottom: theme.spacing.xs,
-            }}
-          >
-            ✨ Weekly Hair Check-In
-          </Text>
-
-          <Text
-            style={{
-              fontSize: theme.fontSizes.sm,
-              color: "rgba(255,255,255,0.9)",
-              marginBottom: theme.spacing.md,
-            }}
-          >
-            Tell your AI coach how your hair felt this week.
-          </Text>
-
-          <Button
-            mode="contained"
-            onPress={() => router.push("../checkin")}
-            style={{ backgroundColor: "#fff" }}
-            labelStyle={{ color: theme.colors.primary, fontWeight: "800" }}
-          >
-            Start Check-In →
-          </Button>
-        </View>
-      )}
-
-      <Text style={{ fontSize: theme.fontSizes.xl, fontWeight: "800" }}>
+      <Text style={{ fontSize: 22, fontWeight: "800" }}>
         Today 💖
       </Text>
-      <Text style={{ color: theme.colors.textLight, marginBottom: 12 }}>
-        Small steps = great hair.
-      </Text>
 
-      <Text style={{ fontSize: 22, fontWeight: "800", marginBottom: 12 }}>
+      <Text style={{ marginBottom: 8 }}>
         🔥 {streak} day streak
       </Text>
 
       {allDone && (
-        <View
-          style={{
-            backgroundColor: "#E8F7EE",
-            borderRadius: theme.radius.lg,
-            padding: theme.spacing.md,
-            marginBottom: theme.spacing.md,
-          }}
-        >
-          <Text style={{ fontWeight: "800", color: "#1E7F4F" }}>
-            🎉 All tasks complete!
-          </Text>
-          <Text style={{ color: "#1E7F4F", marginTop: 4 }}>
-            Keep the streak alive ✨
-          </Text>
-        </View>
+        <Text style={{ color: "#1E7F4F", marginBottom: 12 }}>
+          🎉 All tasks complete!
+        </Text>
       )}
 
       <FlatList
         data={todayTasks}
-        keyExtractor={item => item.action}
+        keyExtractor={i => i.action}
         renderItem={({ item }) => {
           const isDone = completed.includes(item.action);
-
           return (
             <TouchableOpacity
               onPress={() => toggleComplete(item.action)}
-              activeOpacity={0.85}
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: isDone ? "#FFF0F5" : theme.colors.surface,
-                borderRadius: theme.radius.lg,
-                padding: theme.spacing.lg,
-                marginBottom: theme.spacing.md,
-                borderWidth: 1.5,
-                borderColor: isDone
-                  ? theme.colors.primary
-                  : theme.colors.border,
+                padding: 16,
+                borderRadius: 14,
+                marginBottom: 12,
+                backgroundColor: isDone ? "#FFF0F5" : "#fff",
               }}
             >
-              <MaterialCommunityIcons
-                name={
-                  isDone
-                    ? "checkbox-marked-circle"
-                    : "checkbox-blank-circle-outline"
-                }
-                size={28}
-                color={
-                  isDone ? theme.colors.primary : theme.colors.textLight
-                }
-                style={{ marginRight: 14 }}
-              />
-
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    fontSize: theme.fontSizes.md,
-                    fontWeight: "700",
-                    textDecorationLine: isDone
-                      ? "line-through"
-                      : "none",
-                  }}
-                >
-                  {item.action}
-                </Text>
-                <Text style={{ color: theme.colors.textLight, marginTop: 4 }}>
-                  {item.details}
-                </Text>
-              </View>
+              <Text style={{ fontWeight: "700" }}>
+                {item.action}
+              </Text>
+              <Text>{item.details}</Text>
             </TouchableOpacity>
           );
         }}
