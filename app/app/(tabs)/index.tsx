@@ -53,13 +53,9 @@ export default function HomeScreen() {
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
   const [completed, setCompleted] = useState<string[]>([]);
   const [streak, setStreak] = useState(0);
-  const [showWeeklyCheckIn] = useState(true);
 
   const todayKey = new Date().toISOString().split("T")[0];
 
-  /**
-   * 1️⃣ LOAD PLAN + CALCULATE TODAY TASKS (MATCHES CALENDAR)
-   */
   useEffect(() => {
     const load = async () => {
       if (!user) return;
@@ -78,13 +74,12 @@ export default function HomeScreen() {
       const routine = data?.routine || [];
       const start = new Date(data.createdAt || new Date());
 
-      const tasksForToday: Task[] = [];
+      const tasks: Task[] = [];
 
       routine.forEach((r: any) => {
         if (!r.day) return;
-        const dateKey = nextDate(r.day, start);
-        if (dateKey === todayKey) {
-          tasksForToday.push({
+        if (nextDate(r.day, start) === todayKey) {
+          tasks.push({
             action: r.action,
             details: r.details,
             time: r.time,
@@ -93,9 +88,8 @@ export default function HomeScreen() {
       });
 
       setHasPlan(true);
-      setTodayTasks(tasksForToday);
+      setTodayTasks(tasks);
 
-      // Load completion state
       const completionSnap = await getDoc(
         doc(db, "users", user.uid, "dailyCompletions", todayKey)
       );
@@ -110,60 +104,37 @@ export default function HomeScreen() {
     load();
   }, []);
 
-  /**
-   * 2️⃣ AUTO-COMPLETE DAYS WITH ZERO TASKS
-   */
   useEffect(() => {
     if (!user || loading) return;
 
     if (todayTasks.length === 0) {
-      const autoComplete = async () => {
-        const ref = doc(
-          db,
-          "users",
-          user.uid,
-          "dailyCompletions",
-          todayKey
-        );
+      const ref = doc(
+        db,
+        "users",
+        user.uid,
+        "dailyCompletions",
+        todayKey
+      );
 
-        const snap = await getDoc(ref);
-
+      getDoc(ref).then(snap => {
         if (!snap.exists()) {
-          await setDoc(ref, {
+          setDoc(ref, {
             autoCompleted: true,
             date: todayKey,
             updatedAt: serverTimestamp(),
-          });
-
-          await updateStreakForDay(user.uid, todayKey);
+          }).then(() => updateStreakForDay(user.uid, todayKey));
         }
-      };
-
-      autoComplete();
+      });
     }
   }, [todayTasks, loading]);
 
-  /**
-   * 3️⃣ LOAD STREAK
-   */
   useEffect(() => {
     if (!user) return;
-
-    const loadStreak = async () => {
-      const snap = await getDoc(
-        doc(db, "users", user.uid, "stats", "streak")
-      );
-      if (snap.exists()) {
-        setStreak(snap.data().currentStreak || 0);
-      }
-    };
-
-    loadStreak();
+    getDoc(doc(db, "users", user.uid, "stats", "streak")).then(snap => {
+      if (snap.exists()) setStreak(snap.data().currentStreak || 0);
+    });
   }, []);
 
-  /**
-   * 4️⃣ TOGGLE COMPLETION
-   */
   const toggleComplete = async (action: string) => {
     if (!user) return;
 
@@ -175,27 +146,26 @@ export default function HomeScreen() {
       todayKey
     );
 
-    const newCompleted = completed.includes(action)
+    const updated = completed.includes(action)
       ? completed.filter(a => a !== action)
       : [...completed, action];
 
-    setCompleted(newCompleted);
+    setCompleted(updated);
 
     await setDoc(
       ref,
       {
-        completedActions: newCompleted,
+        completedActions: updated,
         date: todayKey,
         updatedAt: serverTimestamp(),
       },
       { merge: true }
     );
 
-    const allDone =
+    if (
       todayTasks.length > 0 &&
-      todayTasks.every(t => newCompleted.includes(t.action));
-
-    if (allDone) {
+      todayTasks.every(t => updated.includes(t.action))
+    ) {
       await updateStreakForDay(user.uid, todayKey);
     }
   };
@@ -229,43 +199,72 @@ export default function HomeScreen() {
 
   return (
     <AppContainer>
-      <Text style={{ fontSize: 22, fontWeight: "800" }}>
+      <Text style={{ fontSize: 24, fontWeight: "800" }}>
         Today 💖
       </Text>
 
-      <Text style={{ marginBottom: 8 }}>
+      <Text style={{ marginBottom: 12 }}>
         🔥 {streak} day streak
       </Text>
 
+      {todayTasks.length === 0 ? (
+        <View style={{ marginTop: 40, alignItems: "center" }}>
+          <MaterialCommunityIcons
+            name="school"
+            size={48}
+            color={theme.colors.primary}
+          />
+          <Text style={{ fontSize: 18, fontWeight: "700", marginTop: 12 }}>
+            No tasks today
+          </Text>
+          <Text
+            style={{
+              textAlign: "center",
+              color: "#666",
+              marginVertical: 8,
+            }}
+          >
+            Why not level up your hair knowledge while your routine does its
+            thing?
+          </Text>
+          <Button
+            mode="contained"
+            onPress={() => router.push("/learn")}
+          >
+            Visit Hair Academy
+          </Button>
+        </View>
+      ) : (
+        <FlatList
+          data={todayTasks}
+          keyExtractor={i => i.action}
+          renderItem={({ item }) => {
+            const isDone = completed.includes(item.action);
+            return (
+              <TouchableOpacity
+                onPress={() => toggleComplete(item.action)}
+                style={{
+                  padding: 16,
+                  borderRadius: 16,
+                  marginBottom: 12,
+                  backgroundColor: isDone ? "#FFF0F5" : "#fff",
+                }}
+              >
+                <Text style={{ fontWeight: "700" }}>
+                  {item.action}
+                </Text>
+                <Text>{item.details}</Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      )}
+
       {allDone && (
-        <Text style={{ color: "#1E7F4F", marginBottom: 12 }}>
+        <Text style={{ color: "#1E7F4F", marginTop: 12 }}>
           🎉 All tasks complete!
         </Text>
       )}
-
-      <FlatList
-        data={todayTasks}
-        keyExtractor={i => i.action}
-        renderItem={({ item }) => {
-          const isDone = completed.includes(item.action);
-          return (
-            <TouchableOpacity
-              onPress={() => toggleComplete(item.action)}
-              style={{
-                padding: 16,
-                borderRadius: 14,
-                marginBottom: 12,
-                backgroundColor: isDone ? "#FFF0F5" : "#fff",
-              }}
-            >
-              <Text style={{ fontWeight: "700" }}>
-                {item.action}
-              </Text>
-              <Text>{item.details}</Text>
-            </TouchableOpacity>
-          );
-        }}
-      />
     </AppContainer>
   );
 }
