@@ -14,7 +14,6 @@ import {
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { Button } from "react-native-paper";
 import theme from "@/theme";
 import AppContainer from "../../components/AppContainer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -56,6 +55,9 @@ export default function HomeScreen() {
 
   const todayKey = new Date().toISOString().split("T")[0];
 
+  /**
+   * LOAD PLAN + TODAY TASKS
+   */
   useEffect(() => {
     const load = async () => {
       if (!user) return;
@@ -104,6 +106,9 @@ export default function HomeScreen() {
     load();
   }, []);
 
+  /**
+   * AUTO-COMPLETE NO-TASK DAYS (STREAK SAFE)
+   */
   useEffect(() => {
     if (!user || loading) return;
 
@@ -128,13 +133,21 @@ export default function HomeScreen() {
     }
   }, [todayTasks, loading]);
 
+  /**
+   * LOAD STREAK
+   */
   useEffect(() => {
     if (!user) return;
     getDoc(doc(db, "users", user.uid, "stats", "streak")).then(snap => {
-      if (snap.exists()) setStreak(snap.data().currentStreak || 0);
+      if (snap.exists()) {
+        setStreak(snap.data().currentStreak || 0);
+      }
     });
   }, []);
 
+  /**
+   * TOGGLE TASK
+   */
   const toggleComplete = async (action: string) => {
     if (!user) return;
 
@@ -185,9 +198,6 @@ export default function HomeScreen() {
           <Text style={{ fontSize: 22, fontWeight: "800" }}>
             Medlocks Hair Coach
           </Text>
-          <Button mode="contained" onPress={() => router.push("/profile")}>
-            Get Started →
-          </Button>
         </View>
       </AppContainer>
     );
@@ -199,40 +209,75 @@ export default function HomeScreen() {
 
   return (
     <AppContainer>
-      <Text style={{ fontSize: 24, fontWeight: "800" }}>
+      <Text style={{ fontSize: 26, fontWeight: "800" }}>
         Today 💖
       </Text>
 
-      <Text style={{ marginBottom: 12 }}>
+      <Text style={{ marginBottom: 16, color: "#666" }}>
         🔥 {streak} day streak
       </Text>
 
+      {/* 🌸 EMPTY DAY — CLEAN GIRL ACADEMY CTA */}
       {todayTasks.length === 0 ? (
-        <View style={{ marginTop: 40, alignItems: "center" }}>
+        <View
+          style={{
+            marginTop: 48,
+            alignItems: "center",
+            paddingHorizontal: 24,
+          }}
+        >
           <MaterialCommunityIcons
-            name="school"
-            size={48}
+            name="flower-outline"
+            size={52}
             color={theme.colors.primary}
           />
-          <Text style={{ fontSize: 18, fontWeight: "700", marginTop: 12 }}>
-            No tasks today
+
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: "700",
+              marginTop: 14,
+            }}
+          >
+            No hair tasks today
           </Text>
+
           <Text
             style={{
               textAlign: "center",
-              color: "#666",
-              marginVertical: 8,
+              color: "#777",
+              marginTop: 8,
+              lineHeight: 20,
             }}
           >
-            Why not level up your hair knowledge while your routine does its
-            thing?
+            Your routine is working quietly ✨  
+            Take a moment to learn something new.
           </Text>
-          <Button
-            mode="contained"
+
+          <TouchableOpacity
             onPress={() => router.push("/learn")}
+            activeOpacity={0.85}
+            style={{
+              marginTop: 20,
+              backgroundColor: "#FFF0F5", // soft pink
+              paddingVertical: 14,
+              paddingHorizontal: 26,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: theme.colors.primary,
+            }}
           >
-            Visit Hair Academy
-          </Button>
+            <Text
+              style={{
+                color: theme.colors.primary,
+                fontWeight: "700",
+                fontSize: 15,
+                letterSpacing: 0.3,
+              }}
+            >
+              Visit Hair Academy
+            </Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -243,17 +288,32 @@ export default function HomeScreen() {
             return (
               <TouchableOpacity
                 onPress={() => toggleComplete(item.action)}
+                activeOpacity={0.85}
                 style={{
-                  padding: 16,
-                  borderRadius: 16,
+                  padding: 18,
+                  borderRadius: 18,
                   marginBottom: 12,
-                  backgroundColor: isDone ? "#FFF0F5" : "#fff",
+                  backgroundColor: isDone ? "#FFF0F5" : "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: isDone
+                    ? theme.colors.primary
+                    : "#EFEFEF",
                 }}
               >
-                <Text style={{ fontWeight: "700" }}>
+                <Text
+                  style={{
+                    fontWeight: "700",
+                    fontSize: 16,
+                    textDecorationLine: isDone
+                      ? "line-through"
+                      : "none",
+                  }}
+                >
                   {item.action}
                 </Text>
-                <Text>{item.details}</Text>
+                <Text style={{ color: "#666", marginTop: 4 }}>
+                  {item.details}
+                </Text>
               </TouchableOpacity>
             );
           }}
@@ -261,8 +321,14 @@ export default function HomeScreen() {
       )}
 
       {allDone && (
-        <Text style={{ color: "#1E7F4F", marginTop: 12 }}>
-          🎉 All tasks complete!
+        <Text
+          style={{
+            color: "#1E7F4F",
+            marginTop: 12,
+            fontWeight: "600",
+          }}
+        >
+          🎉 All tasks complete — your hair loves you
         </Text>
       )}
     </AppContainer>
