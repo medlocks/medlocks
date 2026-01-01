@@ -52,11 +52,13 @@ export default function HomeScreen() {
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
   const [completed, setCompleted] = useState<string[]>([]);
   const [streak, setStreak] = useState(0);
+  const [tips, setTips] = useState<string[]>([]);
 
   const todayKey = new Date().toISOString().split("T")[0];
+  const todayIndex = new Date().getDate(); // for rotating tips
 
   /**
-   * LOAD PLAN + TODAY TASKS
+   * LOAD PLAN + TODAY TASKS + TIPS
    */
   useEffect(() => {
     const load = async () => {
@@ -91,6 +93,7 @@ export default function HomeScreen() {
 
       setHasPlan(true);
       setTodayTasks(tasks);
+      setTips(data?.tips || []);
 
       const completionSnap = await getDoc(
         doc(db, "users", user.uid, "dailyCompletions", todayKey)
@@ -107,7 +110,7 @@ export default function HomeScreen() {
   }, []);
 
   /**
-   * AUTO-COMPLETE NO-TASK DAYS (STREAK SAFE)
+   * AUTO-COMPLETE DAYS WITH NO TASKS
    */
   useEffect(() => {
     if (!user || loading) return;
@@ -138,6 +141,7 @@ export default function HomeScreen() {
    */
   useEffect(() => {
     if (!user) return;
+
     getDoc(doc(db, "users", user.uid, "stats", "streak")).then(snap => {
       if (snap.exists()) {
         setStreak(snap.data().currentStreak || 0);
@@ -146,7 +150,7 @@ export default function HomeScreen() {
   }, []);
 
   /**
-   * TOGGLE TASK
+   * TOGGLE TASK COMPLETION
    */
   const toggleComplete = async (action: string) => {
     if (!user) return;
@@ -207,6 +211,9 @@ export default function HomeScreen() {
     todayTasks.length > 0 &&
     todayTasks.every(t => completed.includes(t.action));
 
+  const todaysTip =
+    tips.length > 0 ? tips[todayIndex % tips.length] : null;
+
   return (
     <AppContainer>
       <Text style={{ fontSize: 26, fontWeight: "800" }}>
@@ -217,69 +224,8 @@ export default function HomeScreen() {
         🔥 {streak} day streak
       </Text>
 
-      {/* 🌸 EMPTY DAY — CLEAN GIRL ACADEMY CTA */}
-      {todayTasks.length === 0 ? (
-        <View
-          style={{
-            marginTop: 48,
-            alignItems: "center",
-            paddingHorizontal: 24,
-          }}
-        >
-          <MaterialCommunityIcons
-            name="flower-outline"
-            size={52}
-            color={theme.colors.primary}
-          />
-
-          <Text
-            style={{
-              fontSize: 20,
-              fontWeight: "700",
-              marginTop: 14,
-            }}
-          >
-            No hair tasks today
-          </Text>
-
-          <Text
-            style={{
-              textAlign: "center",
-              color: "#777",
-              marginTop: 8,
-              lineHeight: 20,
-            }}
-          >
-            Your routine is working quietly ✨  
-            Take a moment to learn something new.
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => router.push("/learn")}
-            activeOpacity={0.85}
-            style={{
-              marginTop: 20,
-              backgroundColor: "#FFF0F5", // soft pink
-              paddingVertical: 14,
-              paddingHorizontal: 26,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: theme.colors.primary,
-            }}
-          >
-            <Text
-              style={{
-                color: theme.colors.primary,
-                fontWeight: "700",
-                fontSize: 15,
-                letterSpacing: 0.3,
-              }}
-            >
-              Visit Hair Academy
-            </Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
+      {/* TASKS */}
+      {todayTasks.length > 0 && (
         <FlatList
           data={todayTasks}
           keyExtractor={i => i.action}
@@ -318,6 +264,41 @@ export default function HomeScreen() {
             );
           }}
         />
+      )}
+
+      {/* HAIR COACH TIP */}
+      {todaysTip && (
+        <View
+          style={{
+            marginTop: 24,
+            padding: 18,
+            borderRadius: 20,
+            backgroundColor: "#FFF7FA",
+            borderWidth: 1,
+            borderColor: "#F5C6D6",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "800",
+              marginBottom: 6,
+              color: theme.colors.primary,
+            }}
+          >
+            💡 Tip from your Hair Coach
+          </Text>
+
+          <Text
+            style={{
+              fontSize: 14,
+              color: "#555",
+              lineHeight: 20,
+            }}
+          >
+            {todaysTip}
+          </Text>
+        </View>
       )}
 
       {allDone && (
