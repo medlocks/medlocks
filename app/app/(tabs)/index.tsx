@@ -52,13 +52,11 @@ export default function HomeScreen() {
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
   const [completed, setCompleted] = useState<string[]>([]);
   const [streak, setStreak] = useState(0);
-  const [tips, setTips] = useState<string[]>([]);
 
   const todayKey = new Date().toISOString().split("T")[0];
-  const todayIndex = new Date().getDate(); // for rotating tips
 
   /**
-   * LOAD PLAN + TODAY TASKS + TIPS
+   * LOAD PLAN + TODAY TASKS (MATCHES CALENDAR)
    */
   useEffect(() => {
     const load = async () => {
@@ -93,7 +91,6 @@ export default function HomeScreen() {
 
       setHasPlan(true);
       setTodayTasks(tasks);
-      setTips(data?.tips || []);
 
       const completionSnap = await getDoc(
         doc(db, "users", user.uid, "dailyCompletions", todayKey)
@@ -110,7 +107,7 @@ export default function HomeScreen() {
   }, []);
 
   /**
-   * AUTO-COMPLETE DAYS WITH NO TASKS
+   * AUTO-COMPLETE NO-TASK DAYS
    */
   useEffect(() => {
     if (!user || loading) return;
@@ -150,7 +147,7 @@ export default function HomeScreen() {
   }, []);
 
   /**
-   * TOGGLE TASK COMPLETION
+   * TOGGLE COMPLETION
    */
   const toggleComplete = async (action: string) => {
     if (!user) return;
@@ -211,21 +208,19 @@ export default function HomeScreen() {
     todayTasks.length > 0 &&
     todayTasks.every(t => completed.includes(t.action));
 
-  const todaysTip =
-    tips.length > 0 ? tips[todayIndex % tips.length] : null;
-
   return (
     <AppContainer>
+      {/* HEADER */}
       <Text style={{ fontSize: 26, fontWeight: "800" }}>
         Today 💖
       </Text>
 
-      <Text style={{ marginBottom: 16, color: "#666" }}>
+      <Text style={{ marginBottom: 16, color: "#777" }}>
         🔥 {streak} day streak
       </Text>
 
       {/* TASKS */}
-      {todayTasks.length > 0 && (
+      {todayTasks.length > 0 ? (
         <FlatList
           data={todayTasks}
           keyExtractor={i => i.action}
@@ -264,54 +259,74 @@ export default function HomeScreen() {
             );
           }}
         />
-      )}
-
-      {/* HAIR COACH TIP */}
-      {todaysTip && (
+      ) : (
         <View
           style={{
-            marginTop: 24,
-            padding: 18,
-            borderRadius: 20,
             backgroundColor: "#FFF7FA",
+            borderRadius: 20,
+            padding: 20,
             borderWidth: 1,
-            borderColor: "#F5C6D6",
+            borderColor: "#F4C6D8",
+            marginBottom: 16,
           }}
         >
           <Text
             style={{
-              fontSize: 15,
               fontWeight: "800",
+              fontSize: 16,
               marginBottom: 6,
-              color: theme.colors.primary,
             }}
           >
-            💡 Tip from your Hair Coach
+            No hair tasks today 🌸
           </Text>
-
-          <Text
-            style={{
-              fontSize: 14,
-              color: "#555",
-              lineHeight: 20,
-            }}
-          >
-            {todaysTip}
+          <Text style={{ color: "#666", lineHeight: 20 }}>
+            Rest days matter too. Your consistency is what keeps your hair
+            thriving.
           </Text>
         </View>
       )}
 
+      {/* ALL DONE MESSAGE */}
       {allDone && (
         <Text
           style={{
             color: "#1E7F4F",
-            marginTop: 12,
+            marginBottom: 16,
             fontWeight: "600",
           }}
         >
-          🎉 All tasks complete — your hair loves you
+          🎉 All tasks complete — streak secured
         </Text>
       )}
+
+      {/* HAIR FEEDBACK CTA */}
+      <TouchableOpacity
+        onPress={() => router.push("./feedback")}
+        activeOpacity={0.85}
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderRadius: 20,
+          padding: 18,
+          borderWidth: 1,
+          borderColor: "#F2D6E2",
+          marginTop: 8,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 15,
+            fontWeight: "800",
+            color: theme.colors.primary,
+            marginBottom: 4,
+          }}
+        >
+          💭 Review your Hair Feedback
+        </Text>
+        <Text style={{ color: "#666", lineHeight: 20 }}>
+          See how your hair has been responding and help your coach personalise
+          what’s next.
+        </Text>
+      </TouchableOpacity>
     </AppContainer>
   );
 }
